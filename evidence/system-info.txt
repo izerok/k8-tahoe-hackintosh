@@ -1,0 +1,46 @@
+### 系统
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+x86_64
+
+### GPU
+Graphics/Displays:
+
+    AMD Radeon 780M:
+
+      Chipset Model: AMD Radeon 780M
+      Type: GPU
+      Bus: PCIe
+      PCIe Lane Width: x16
+      VRAM (Total): 2 GB
+      Vendor: AMD (0x1002)
+      Device ID: 0x1900
+      Revision ID: 0x00ba
+      Metal Support: Metal 3
+      Displays:
+        Display:
+          Resolution: 2560 x 1600
+
+### PhxFB 属性
+    | |   |   | | |   "PhxFBWidth" = 2560
+    | |   |   | | |   "PhxFBRefreshMilliHz" = 60000
+    | |   |   | | |   "PhxFBHeight" = 1600
+
+### phxboot.log
+done 22:43:59
+== 2026-11-19 22:45:49 phxboot
+PhxAMDFB on the panel: 1
+compute: scratch0=0xdeadbeef (want deadbeef) testbuf=0xfeedf00d (want feedf00d) hqd_active=1 rptr=8
+adopt queue -> kr 0x0
+gfx: scratch1=0xdeadbeef (want deadbeef) testbuf=0x6f7a6f7a (want 6f7a6f7a) rptr=0 rptr_wb=968 grbm=0xa800302c cp_stat=0x00000000
+adopt gfx queue -> kr 0x0
+claim -> kr 0x0
+armed and released at 22:46:01; agdc 1
+WindowServer pid 194, frames on the panel 2162
+PhxAMDFB armed for the next boot
+done 22:47:32
+
+### 驱动版本
+    | |   |   | | |   "phx-build" = 37
+  129    0 0xffffff7f966c0000 0x1d1f2    0x1d1f2    com.luuumi.PhxAccel (0.1) 77C28010-8259-36BA-8B34-E75C3E7F955D <128 125 124 84 19 7 6 3 1>
