@@ -188,6 +188,20 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **OpenCore 为 DEBUG 版**（`Misc → Debug → Target = 67`），稳定后可换 RELEASE 或把 Target 调小
 - **选单等待**：模板 config 已把 `Timeout` 设为 5 秒（原为 0 = 无限等待）
 
+### 7.0 空闲高频（nullarc #14）已修复（2026-11-20）
+
+nullarc 的 `mesboot` 在建立 gfx 队列前没有写 `CP_MEC_DOORBELL_RANGE`，命令处理器永久报忙，PMFW 把 GFXCLK 钉在 2600 MHz，空闲也发热、风扇狂转。
+
+修复：用 `izerok/nullarc` 的 **`gfx-idle` 分支**（commit `994fa0f`，"mesboot: set CP_MEC_DOORBELL_RANGE before the first gfx doorbell"）重新编译 `mesboot`，替换 `/Users/Shared/gpu/phxctl/mesboot` 后重启（只动用户态二进制，不改 kext/AuxKC）：
+
+```bash
+git clone --depth 1 --branch gfx-idle https://github.com/izerok/nullarc
+clang -O2 -o mesboot nullarc/tools/phxctl/mesboot.c -framework IOKit -framework CoreFoundation
+sudo cp mesboot /Users/Shared/gpu/phxctl/mesboot && sudo chown root:wheel $_ && sudo chmod 755 $_
+```
+
+实测：空闲 `debug.phx_pm_gfxclk` 从 **2600 → 800 MHz**（`mode=1`、上限 2600 也不影响空闲），接管与 Metal 3 正常。
+
 ### 7.1 已验证的显示配置（2026-11-19）
 
 ```bash
