@@ -178,7 +178,7 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **撕裂 / 67 ms 卡顿**：需要 fork 的 `phxaccel-dbuf` / `phxaccel-vbl-timing` 补丁；官方 0.4.0 的 kext **没有** `debug.phxfb_dbuf`
 - **WindowServer CPU 偏高**：官方插件每帧开销大；参考项目的 `nvmtl-*` 性能补丁可降到 25–40%
 - **有线网卡 panic**：`RTL812xLucy` v1.1.3 在 fq_codel 断言（`classq_fq_codel.c:1127`）下崩溃过一次，panic 栈直接指向该 kext（`RTL8125::outputStart`），属驱动侧 bug；暂未复现
-- **WindowServer 崩溃（黑屏几秒/回登录）**：任何**窗口捕获**都会触发 nullarc 的 Metal 缺陷——`MetalBacking::AbortWithTextureInfo` → `MetalIOSurfaceBacking::PrepareForUse` → `CaptureSurfaceMetal::Populate` → `WS::Capture::create_iosurface_for_window_list`，WindowServer 以 SIGABRT 退出。实测触发场景：**切换壁纸**（系统设置预览会抓窗口 + 动态壁纸还在解码视频）、截屏、录屏、共享屏幕。WindowServer 会自动重启，开启自动登录可自动回到桌面；**日常用静态壁纸、避免在 GPU 路径下做窗口捕获**。
+- **窗口捕获崩溃（2026-11-20 更新：动态壁纸已不崩）**：nullarc 的 Metal 缺陷——`MetalBacking::AbortWithTextureInfo` → `MetalIOSurfaceBacking::PrepareForUse` → `CaptureSurfaceMetal::Populate` → `WS::Capture::create_iosurface_for_window_list`，WindowServer SIGABRT。**装上 NVMTL 四个性能补丁后，动态壁纸的播放与切换不再触发该崩溃（实机复测通过）**；仍会触发的是截屏、录屏、共享屏幕和锁屏界面（见下一条）。WindowServer 会自动重启，自动登录可回到桌面。
 - **无 HiDPI**：PhxAMDFB 只报告固件 GOP 的单模式
 - **仅 HDMI 单屏**：0.4.0 不驱动外接 PHY
 - **锁屏也会触发同一缺陷（2026-11-20 新增）**：锁屏界面会做一次窗口捕获，同样命中 `MetalBacking::AbortWithTextureInfo`；更糟的是崩溃后重启的 WindowServer 可能主线程卡死，被 `userspace_watchdog_timeout` 杀掉（实测 40 秒无响应），表现为持续黑屏。`phxboot.sh` 检测到上一次启动未完成会自动创建 `phxboot-off` 关闭 GPU，需删除该文件并重启才能恢复加速。**日常不要锁屏/截屏/录屏/共享屏幕**；可在 系统设置 → 锁屏 中把"需要密码"设为"永不"、屏保设为"永不"，避免误触。
