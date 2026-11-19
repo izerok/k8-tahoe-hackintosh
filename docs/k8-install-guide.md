@@ -4,6 +4,7 @@
 > - 实际安装版本为 **26.6.2（25G83）**，不是本文标题里的 26.7.3；安装器、EFI 与实测步骤见根 README。
 > - 安装阶段必须新增 **XhciNudge.kext + `xhcinudge=4`**：AMD Zen 4（Hawk Point）内核 USB 丢中断会让 `validate_root_image` 卡几十分钟，没有它装不上。
 > - GPU 阶段：官方 nullarc v0.4.0 在 780M（`1002:1900`）上接管会卡死在内核早期；改用 `hdmi-fb2` fork 的两个 kext 后接管成功（详见根 README §3.3）。
+> - **已知崩溃**：切换壁纸/截屏/录屏/共享屏幕会触发 nullarc 的窗口捕获缺陷（`MetalBacking::AbortWithTextureInfo`），WindowServer SIGABRT 后自动重启（黑屏几秒）。日常用静态壁纸，避免这些操作。
 > - §3.8 关于 PhxBringup 的说法写严了：把它放进 EFI 并由 OpenCore 加载是正确的做法——`install.sh` 的前置检查要求它已加载。
 
 
