@@ -16,7 +16,7 @@ OC/ACPI/*.dsl       ACPI 源文件（对应编译后的 .aml 需自行生成或�
 | XhciNudge.kext（二进制） | 来自 `bbbbRT` 的 EFI；行为分析见 `sfyyy/mechrevo-f7bsc-hackintosh` |
 | PhxBringup.kext / PhxAccel.kext | `izerok/nullarc`，分支 `hdmi-fb2` @ `50db1e1`（见根 README 的 SHA） |
 | AirportItlwm（Tahoe fork）、IntelBluetoothFirmware/IntelBTPatcher（Tahoe fork）、BlueToolFixup | `laobamac/itlwm`、`lshbluesky/IntelBluetoothFirmware`、`acidanthera/BrcmPatchRAM` |
-| LucyRTL8125Ethernet 1.1.3 | https://github.com/Mieze/LucyRTL8125Ethernet |
+| RTL812xLucy v1.1.3 | https://github.com/Mieze/RTL812xLucy |
 | GenSMBIOS | https://github.com/corpnewt/GenSMBIOS |
 
 ## 使用前必须做的
@@ -34,3 +34,9 @@ OC/ACPI/*.dsl       ACPI 源文件（对应编译后的 .aml 需自行生成或�
 - `NVRAM → Add → 7C436110-…`：`boot-args` 与 `csr-active-config=7F080000`
 - `Misc → Security → SecureBootModel = Disabled`
 - `Misc → Boot → LauncherOption = Disabled`（装完系统后再考虑改 `Full`）
+
+## 补充说明（2026-11-19）
+
+- 模板 `OC/config.plist` 已把 `Misc → Boot → Timeout` 设为 **5 秒**（原配置为 0，会无限等待按键）
+- 模板 **不含** `-phxfboff`；它是 GPU 接管失败时的逃生开关，需要时临时加到 `boot-args`
+- `SSDT-PLUG-ALT.dsl` 未使用（本机用 `SSDT-CPUR`），已从本目录移除

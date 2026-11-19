@@ -1,5 +1,12 @@
 # K8 装机指南 — 在 KTHIN K8 上装 macOS Tahoe 26.7.3
 
+> **2026-11-19 实测更新（本仓库）**
+> - 实际安装版本为 **26.6.2（25G83）**，不是本文标题里的 26.7.3；安装器、EFI 与实测步骤见根 README。
+> - 安装阶段必须新增 **XhciNudge.kext + `xhcinudge=4`**：AMD Zen 4（Hawk Point）内核 USB 丢中断会让 `validate_root_image` 卡几十分钟，没有它装不上。
+> - GPU 阶段：官方 nullarc v0.4.0 在 780M（`1002:1900`）上接管会卡死在内核早期；改用 `hdmi-fb2` fork 的两个 kext 后接管成功（详见根 README §3.3）。
+> - §3.8 关于 PhxBringup 的说法写严了：把它放进 EFI 并由 OpenCore 加载是正确的做法——`install.sh` 的前置检查要求它已加载。
+
+
 - 机器：KTHIN 科偲 K8，Ryzen 7 255 / H255，Radeon 780M（1002:1900），BIOS 2.09
 - 目标系统：macOS Tahoe **26.7.3**（build 25G342）——钉这个版本，因为 #30 那台迷你主机（UM790 Pro，7940HS）在 26.7.3 上跑通了玻璃效果，机制已确认：成功启动的三行日志（`taken` / `console: 1920x1080 row 7680 depth 32` / `panel published … vbl timer running`）与 config.plist 原文（`phxfb-boot` = Data `MDE=`，即 "01"，在 7C436110 下；NVRAM → Delete 里没有它，每次启动都重新注入）都已贴出，重启后玻璃还在、动态壁纸也回来了；nullarc 文档自己写的实测版是 26.6.2（25G83），那个范围也通
 - EFI 只有一条路：Firebat U6C 的 EFI（同款 H 255 APU，按 K8 硬件改过）。OpCore Simplify 本来是 A 路，但 2026-11-18 晚核查源码后确认它在 K8 上直接退出（兼容性检查不认 780M），A 路已删，见 §3 开头

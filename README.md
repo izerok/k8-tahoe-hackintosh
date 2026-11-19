@@ -26,7 +26,7 @@
 | 项目 | 状态 |
 |---|---|
 | OpenCore 引导 / 安装 | ✅ 无需 U 盘，内置盘独立启动 |
-| 有线网络 | ✅ RTL8125（LucyRTL8125Ethernet） |
+| 有线网络 | ✅ RTL8125（RTL812xLucy） |
 | Wi-Fi / 蓝牙 | ⚠️ 驱动已注入，未做完整实测 |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
 | 玻璃/毛玻璃效果 | ✅ |
@@ -114,7 +114,7 @@ sudo "/Applications/Install macOS Tahoe.app/Contents/Resources/createinstallmedi
 以 Firebat U6C 的 EFI 为底座（同款 H 255 APU），针对 K8 修改：
 
 - **关闭**笔记本专用项：`VoodooI2C`(+插件)、`VoodooI2CHID`、`VoodooPS2Controller`(+插件)、`HoRNDIS`、`RtWlanU`、`SSDT-USB-Reset`
-- **新增**：`XhciNudge.kext`（`MinKernel 21.0.0`）、`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `LucyRTL8125Ethernet`、`AirportItlwm`(Tahoe fork)、`IntelBluetoothFirmware`/`IntelBTPatcher`(Tahoe fork)、`BlueToolFixup`
+- **新增**：`XhciNudge.kext`（`MinKernel 21.0.0`）、`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `RTL812xLucy`、`AirportItlwm`(Tahoe fork)、`IntelBluetoothFirmware`/`IntelBTPatcher`(Tahoe fork)、`BlueToolFixup`
 - **boot-args**：`-v keepsyms=1 debug=0x100 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 xhcinudge=4`
 - **SMBIOS**：`MacBookPro16,1` + GenSMBIOS 生成序列号/MLB/UUID + `ROM = 有线网卡 MAC`
 - `csr-active-config=7F080000`、`SecureBootModel=Disabled`、`DummyPowerManagement=true`、`ProvideCurrentCpuInfo=true`
@@ -166,20 +166,40 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 
 | 手段 | 作用 |
 |---|---|
-| boot-arg `-phxfboff` | PhxAMDFB 不接管屏幕，回固件帧缓冲（本仓库的 U 盘 EFI 带着它，用于救砖） |
+| boot-arg `-phxfboff` | PhxAMDFB 不接管屏幕，回固件帧缓冲（**仓库模板 config 不含它**；救砖用的 U 盘 EFI 曾加过，需要时临时加到 boot-args 再启动） |
 | `sudo touch /Users/Shared/gpu/phxboot-off` | 阻止下次启动 arm 接管 |
 | `sudo nvram -d phxfb-boot` | 清除握手变量 |
 | `sudo ./uninstall.sh` | 卸载 nullarc（恢复前先看官方 `docs/INSTALL.md`） |
 | U 盘 EFI 启动 | 挂死时的救援路径（OpenCore 在 U 盘上） |
 
-## 7. 已知问题
+## 7. 已知问题与已验证的缓解
 
-- **残影**：nullarc 0.4.0 的 `surface_gpu_on` 合成等待缺陷；参考项目用 `macos/display` 脚本（`debug.nvaccel_surface_gpu_on=0` + `NVMTL_WS_WAIT_COMPLETION=1`）绕过
-- **WindowServer CPU 偏高**：官方插件每帧开销大；参考项目有 `nvmtl-*` 性能补丁，可降到 25–40%
-- **撕裂 / 67 ms 卡顿**：参考项目的 `phxaccel-dbuf` / `phxaccel-vbl-timing` 补丁
-- **有线网卡 panic**：`LucyRTL8125Ethernet` 在 fq_codel 断言（`classq_fq_codel.c:1127`）下崩溃过一次，属驱动 bug
+- **残影**：nullarc 0.4.0 的合成等待缺陷。已验证缓解（见 §7.1）：残影**明显减轻但未完全消失**
+- **撕裂 / 67 ms 卡顿**：需要 fork 的 `phxaccel-dbuf` / `phxaccel-vbl-timing` 补丁；官方 0.4.0 的 kext **没有** `debug.phxfb_dbuf`
+- **WindowServer CPU 偏高**：官方插件每帧开销大；参考项目的 `nvmtl-*` 性能补丁可降到 25–40%
+- **有线网卡 panic**：`RTL812xLucy` v1.1.3 在 fq_codel 断言（`classq_fq_codel.c:1127`）下崩溃过一次，panic 栈直接指向该 kext（`RTL8125::outputStart`），属驱动侧 bug；暂未复现
 - **无 HiDPI**：PhxAMDFB 只报告固件 GOP 的单模式
 - **仅 HDMI 单屏**：0.4.0 不驱动外接 PHY
+- **显存 2 GB**：由 BIOS 的 UMA Frame Buffer 分配决定；2560×1600 够用，想上 4K 建议调大
+- **显示器尺寸误报**：关于本机里"42 英寸"是 PhxAMDFB 报的尺寸，实际为 27 英寸，不影响使用
+- **OpenCore 为 DEBUG 版**（`Misc → Debug → Target = 67`），稳定后可换 RELEASE 或把 Target 调小
+- **选单等待**：模板 config 已把 `Timeout` 设为 5 秒（原为 0 = 无限等待）
+
+### 7.1 已验证的显示配置（2026-11-19）
+
+```bash
+# 立即生效
+sudo sysctl -w debug.nvaccel_surface_gpu_on=0
+
+# /Library/GPUBundles/nvmtl/nvrm610.conf 追加（每个进程启动时读取，注销后生效）
+NVMTL_WS_WAIT_COMPLETION=1
+NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
+```
+
+`debug.*` sysctl 每次重启会重置，需要开机自启（参考实现：`/usr/local/bin/phxdisplay.sh` + `/Library/LaunchDaemons/local.phxdisplay.plist`，`RunAtLoad` 执行 `sysctl -w debug.nvaccel_surface_gpu_on=0`）。
+
+验证：`sysctl debug.nvaccel_surface_gpu_on` 为 0；插件二进制中存在上述两个 `NVMTL_*` 键；`debug.nvaccel_iop_fail` 保持 0。
+实测结果：注销重登后残影**好很多但仍存在**——这是官方 0.4.0 kext 的极限，进一步改善需要 fork 版 `PhxAccel` 的 dbuf/vbl 补丁。
 
 ## 8. 证据
 
@@ -201,4 +221,4 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **`bbbbRT`**：`XhciNudge.kext` 原始二进制
 - **`izerok/nullarc`**（`hdmi-fb2` 分支）：780M 加速与 fork 版 kext
 - **Cobalt64 / nullmoth**：RDNA3 macOS 驱动研究
-- **Mieze**：LucyRTL8125Ethernet；**OpenIntelWireless / laobamac / lshbluesky**：AX200 驱动 fork
+- **Mieze**：RTL812xLucy；**OpenIntelWireless / laobamac / lshbluesky**：AX200 驱动 fork
