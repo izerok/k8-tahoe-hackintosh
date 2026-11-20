@@ -313,7 +313,14 @@ com.insanelymac.RTL812xLucy 1.1.302
 - boot-args 去掉 `debug=0x100`（panic 自动重启，不再黑屏空转）
 
 验证：`ifconfig en1` options 从 `46b` 变 `40b`（无 TSO）；100 MB 单流 + 2×100 MB 并行下载未复现。
-若 Chrome 下载仍崩：禁用 RTL8125，改用 AX200 Wi-Fi 或 USB 网卡。
+用户复测 Chrome 下载也**不再崩溃**。若仍复现：禁用 RTL8125，改用 AX200 Wi-Fi 或 USB 网卡。
+
+### 7.8 快速启动（2026-11-20）
+
+- boot-args 去掉 `-v`（保留 `keepsyms=1`、`msgbuf`）
+- `Misc.Debug.Target=1`（只 console，不向 ESP 写 `opencore-*.txt`）、`AppleDebug=false`、`LogModules=""`
+- `ocvalidate 1.0.8` 校验：No issues found
+- 实测重启后 SSH 约 30 秒回来（之前 45–55 秒），ESP 不再新增 OpenCore 日志；`Timeout=5` 不变
 
 ## 8. 证据
 
