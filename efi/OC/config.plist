@@ -342,7 +342,7 @@
 				<key>Comment</key>
 				<string>AMD Zen 4 xHCI lost-interrupt fix (xhcinudge=4)</string>
 				<key>Enabled</key>
-				<true/>
+				<false/>
 				<key>ExecutablePath</key>
 				<string>Contents/MacOS/XhciNudge</string>
 				<key>MaxKernel</key>
@@ -396,7 +396,7 @@
 				<key>Comment</key>
 				<string>IntelBTPatcher lshbluesky fork v2.5.3 (Tahoe)</string>
 				<key>Enabled</key>
-				<true/>
+				<false/>
 				<key>ExecutablePath</key>
 				<string>Contents/MacOS/IntelBTPatcher</string>
 				<key>MaxKernel</key>
@@ -1008,9 +1008,81 @@
 				<key>Comment</key>
 				<string>K8 xHCI map - disabled (XhciNudge is the fix)</string>
 				<key>Enabled</key>
-				<false/>
+				<true/>
 				<key>ExecutablePath</key>
 				<string></string>
+				<key>MaxKernel</key>
+				<string></string>
+				<key>MinKernel</key>
+				<string></string>
+				<key>PlistPath</key>
+				<string>Contents/Info.plist</string>
+			</dict>
+			<dict>
+				<key>Arch</key>
+				<string>Any</string>
+				<key>BundlePath</key>
+				<string>VoodooHDA_BL.kext</string>
+				<key>Comment</key>
+				<string>VoodooHDA_BL 3.7.1 (AMD HDA 15e3, no AppleHDA)</string>
+				<key>Enabled</key>
+				<true/>
+				<key>ExecutablePath</key>
+				<string>Contents/MacOS/VoodooHDA_BL</string>
+				<key>MaxKernel</key>
+				<string></string>
+				<key>MinKernel</key>
+				<string>19.0.0</string>
+				<key>PlistPath</key>
+				<string>Contents/Info.plist</string>
+			</dict>
+			<dict>
+				<key>Arch</key>
+				<string>Any</string>
+				<key>BundlePath</key>
+				<string>WujieXhciIntx.kext</string>
+				<key>Comment</key>
+				<string>AMD xHCI INTx instead of XhciNudge polling</string>
+				<key>Enabled</key>
+				<true/>
+				<key>ExecutablePath</key>
+				<string>Contents/MacOS/WujieXhciIntx</string>
+				<key>MaxKernel</key>
+				<string></string>
+				<key>MinKernel</key>
+				<string>21.0.0</string>
+				<key>PlistPath</key>
+				<string>Contents/Info.plist</string>
+			</dict>
+			<dict>
+				<key>Arch</key>
+				<string>Any</string>
+				<key>BundlePath</key>
+				<string>PhxCPPC.kext</string>
+				<key>Comment</key>
+				<string>AMD CPPC/EPP MSR control (nullarc PR 21)</string>
+				<key>Enabled</key>
+				<true/>
+				<key>ExecutablePath</key>
+				<string>Contents/MacOS/PhxCPPC</string>
+				<key>MaxKernel</key>
+				<string></string>
+				<key>MinKernel</key>
+				<string>21.0.0</string>
+				<key>PlistPath</key>
+				<string>Contents/Info.plist</string>
+			</dict>
+			<dict>
+				<key>Arch</key>
+				<string>Any</string>
+				<key>BundlePath</key>
+				<string>RyzenHV.kext</string>
+				<key>Comment</key>
+				<string>RyzenHV (Hypervisor.framework on AMD-V)</string>
+				<key>Enabled</key>
+				<true/>
+				<key>ExecutablePath</key>
+				<string>Contents/MacOS/RyzenHV</string>
 				<key>MaxKernel</key>
 				<string></string>
 				<key>MinKernel</key>
@@ -2142,7 +2214,7 @@
 		<key>Debug</key>
 		<dict>
 			<key>AppleDebug</key>
-			<true/>
+			<false/>
 			<key>ApplePanic</key>
 			<true/>
 			<key>DisableWatchDog</key>
@@ -2152,11 +2224,11 @@
 			<key>DisplayLevel</key>
 			<integer>2147483714</integer>
 			<key>LogModules</key>
-			<string>*</string>
+			<string></string>
 			<key>SysReport</key>
 			<false/>
 			<key>Target</key>
-			<integer>67</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Entries</key>
 		<array/>
@@ -2241,7 +2313,7 @@
 				AAAAAAAAAAAAAAAAAAA=
 				</data>
 				<key>boot-args</key>
-				<string>-v keepsyms=1 debug=0x100 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 xhcinudge=4</string>
+				<string>keepsyms=1 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 wujiexhci=1 rhv_enable_svm=1 rhv_allow_users=1 rhv_hv=1</string>
 				<key>csr-active-config</key>
 				<data>
 				fwgAAA==

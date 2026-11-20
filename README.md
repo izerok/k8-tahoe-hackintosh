@@ -58,6 +58,8 @@ boot-args: ... phxdebug=1 xhcinudge
 - `xhcinudge=<ms>` 是注入间隔，**单位毫秒**；`0` 关闭；默认 4
 - 调成 `1` 时空闲 `kernel_task` 会到 30–40%，`4` 约 6.7%
 - **不能移除**：`=0` 时表现为按键连发、鼠标极慢、大文件读取卡死
+- **2026-11-20 起已被取代**：改用 `WujieXhciIntx` 的 INTx 模式（§7.9），
+  `XhciNudge.kext` 禁用、boot-args 换成 `wujiexhci`；此段保留作背景与回退说明
 - 来源：`bbbbRT` 的 EFI（仅二进制），经 `sfyyy/mechrevo-f7bsc-hackintosh` 的 `docs/known-issues.md` 逆向确认行为
 
 ### 3.2 纯 UEFI 固件的启动项问题
@@ -119,8 +121,13 @@ sudo "/Applications/Install macOS Tahoe.app/Contents/Resources/createinstallmedi
 以 Firebat U6C 的 EFI 为底座（同款 H 255 APU），针对 K8 修改：
 
 - **关闭**笔记本专用项：`VoodooI2C`(+插件)、`VoodooI2CHID`、`VoodooPS2Controller`(+插件)、`HoRNDIS`、`RtWlanU`、`SSDT-USB-Reset`
-- **新增**：`XhciNudge.kext`（`MinKernel 21.0.0`）、`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `RTL812xLucy`、`AirportItlwm`(Tahoe fork)、`IntelBluetoothFirmware`/`IntelBTPatcher`(Tahoe fork)、`BlueToolFixup`
-- **boot-args**：`-v keepsyms=1 debug=0x100 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 xhcinudge`
+- **新增（2026-11-19）**：`XhciNudge.kext`（`MinKernel 21.0.0`）、`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `RTL812xLucy`、`AirportItlwm`(Tahoe fork)、`IntelBluetoothFirmware`/`IntelBTPatcher`(Tahoe fork)、`BlueToolFixup`
+- **2026-11-20 变更（与当前模板一致）**：
+  - **禁用** `XhciNudge.kext` 与 `IntelBTPatcher.kext`（后者在 Tahoe 上 Hook 私有符号可致 Kernel Trap 14）
+  - **新增** `WujieXhciIntx.kext`（xHCI INTx，§7.9）、`VoodooHDA_BL.kext`（音频，§7.5）、
+    `PhxCPPC.kext`（CPU PM，§7.10）、`RyzenHV.kext`（Docker/Hypervisor 后端，§9）
+  - boot-args 见 §3；完整启用列表以 `efi/OC/config.plist` 为准
+- **boot-args（当前模板）**：`keepsyms=1 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 wujiexhci rhv_enable_svm=1 rhv_allow_users=1 rhv_hv=1`（无 `-v`、无 `debug=0x100`——前者只是观感，后者会让 panic 停在黑屏；`wujiexhci` 见 §7.9，`rhv_*` 见 §9）
 - **SMBIOS**：`MacBookPro16,1` + GenSMBIOS 生成序列号/MLB/UUID + `ROM = 有线网卡 MAC`
 - `csr-active-config=7F080000`、`SecureBootModel=Disabled`、`DummyPowerManagement=true`、`ProvideCurrentCpuInfo=true`
 - 仓库内 `efi/OC/config.plist` 为**脱敏模板**（SMBIOS 为占位符），`efi/OC/ACPI/*.dsl` 为 ACPI 源文件
@@ -379,7 +386,7 @@ DP 训练无法开始。已回滚到 main vbl/dbuf Accel；工具快照在私有
 - **Cobalt64 / nullmoth**：RDNA3 macOS 驱动研究
 - **Mieze**：RTL812xLucy；**OpenIntelWireless / laobamac / lshbluesky**：AX200 驱动 fork
 
-## 9. Docker / Kiri（2026-11-20）
+## 11. Docker / Kiri（2026-11-20）
 
 K8 上可以在 AMD Ryzen 黑苹果里跑容器：**RyzenHV**（`OverlordDev/ryzen-hypervisor.framework`，MIT）
 内核扩展用 AMD-V/SVM 实现了 Apple `Hypervisor.framework` 的后端（`kern.hv_support` 原本为 0，
