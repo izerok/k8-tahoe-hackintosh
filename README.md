@@ -392,5 +392,10 @@ K8 上可以在 AMD Ryzen 黑苹果里跑容器：**RyzenHV**（`OverlordDev/ryz
   `VM did not boot: this Mac does not support virtualization` 变为完全可用——
   `hello-world`、`nginx -p 8080:80` + `curl` 200、`ps/rm` 均正常
 - Docker Desktop 4.97.0 验证可运行（RyzenHV native 模式无需 shim），本机已卸载、由 Kiri 覆盖需求
+- **`/var/run/docker.sock` 默认不存在**（Docker Desktop 才创建它）：`docker load -i xxx.tar` 之类
+  直接连 `/var/run/docker.sock` 的命令会报 `no such file or directory`。
+  修复：`sudo kiri setup --docker-socket`，创建 `/var/run/docker.sock → ~/.kiri/run/docker.sock`
+  （只影响 docker-py/Testcontainers 这类忽略 context 的工具；`kiri`/`docker` CLI 走 context 不受影响）
+- 实测 `docker load` 169 MB 镜像包 → 4 个 tag 全部载入；容器运行、端口发布、出站网络均正常
 - 已知边界：RyzenHV 实验性（无 entitlement 检查、睡眠/唤醒未验证、Tahoe 非上游实测版本）；
-  compose/build/K8s（`kiri k8s start`）尚未测试
+  compose/build/K8s（`kiri k8s start`）尚未测试；容器内 netlink 操作（如防火墙规则）因权限不足失败，属容器沙箱正常行为
