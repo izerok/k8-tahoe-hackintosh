@@ -176,7 +176,8 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 
 ## 7. 已知问题与已验证的缓解
 
-- **残影**：nullarc 0.4.0 的合成等待缺陷。已验证缓解（见 §7.1）：残影**明显减轻但未完全消失**
+- **残影（2026-11-20 已解决）**：nullarc 0.4.0 的合成等待缺陷。§7.1 的 `surface_gpu_on=0` 单独只能减轻；
+  叠加 §7.2 的 `debug.phxfb_dbuf=1` 后**用户确认残影消失**（双缓冲在 VUPDATE 翻转，旧帧不再被扫描到）
 - **撕裂 / 67 ms 卡顿**：**67 ms 已修复**（`debug.phxfb_timing`，见 §7.2）；撕裂的 `dbuf` 已移植，默认关闭，`sudo sysctl -w debug.phxfb_dbuf=1` 开启，待快速滚动/拖动的视觉验收
 - **WindowServer CPU 偏高**：官方插件每帧开销大；参考项目的 `nvmtl-*` 性能补丁可降到 25–40%
 - **有线网卡 panic**：`RTL812xLucy` v1.1.3 在 fq_codel 断言（`classq_fq_codel.c:1127`）下崩溃过一次，panic 栈直接指向该 kext（`RTL8125::outputStart`），属驱动侧 bug；暂未复现
@@ -219,7 +220,7 @@ NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
 `debug.*` sysctl 每次重启会重置，需要开机自启（参考实现：`/usr/local/bin/phxdisplay.sh` + `/Library/LaunchDaemons/local.phxdisplay.plist`，`RunAtLoad` 执行 `sysctl -w debug.nvaccel_surface_gpu_on=0`）。
 
 验证：`sysctl debug.nvaccel_surface_gpu_on` 为 0；插件二进制中存在上述两个 `NVMTL_*` 键；`debug.nvaccel_iop_fail` 保持 0。
-实测结果：注销重登后残影**好很多但仍存在**——这是官方 0.4.0 kext 的极限；残影需继续等 fork 的合成修复。
+实测结果：注销重登后残影**明显减轻但仍有残留**；再叠加 §7.2 的 `debug.phxfb_dbuf=1` 后，**用户确认残影消失**（2026-11-20）。
 
 ### 7.2 vbl-timing / dbuf 手工移植（2026-11-20）
 
@@ -234,7 +235,8 @@ NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
   **300 callbacks、out avg 16.667 ms、0 个 >20 ms**；修复前为 16.781 ms 步进并反复出现 **66.7 ms**（4 帧）空档。
 - **dbuf（撕裂）**：`debug.phxfb_dbuf` 默认 0；`N > 1` 表示试运行 N 秒后自动回到单缓冲。
   实测 `=30`：`state=1`、30 秒 1027 flips、`wait_timeouts=0`、自动回退 `homes=1`；
-  常开 `=1` 后 CVDisplayLink 仍稳定。关闭：`sudo sysctl -w debug.phxfb_dbuf=0`（重启也回默认 0）。
+  常开 `=1` 后 CVDisplayLink 仍稳定。**用户确认开启后残影消失**（2026-11-20），已把 `debug.phxfb_dbuf=1`
+  写入 `/usr/local/bin/phxdisplay.sh`（开机重试直到 OID 可用）持久化。临时关闭：`sudo sysctl -w debug.phxfb_dbuf=0`。
 - 驱动侧另有 `debug.phxfb_dbuf_state` / `_flips` / `_waits` / `_wait_timeouts` / `_wait_max_us` 可观测。
 
 ## 8. 证据
