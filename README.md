@@ -31,7 +31,7 @@
 | 音频 | ❌ 无输出设备：Tahoe 已移除 AppleHDA，AppleALC 处于关闭状态 |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
 | 玻璃/毛玻璃效果 | ✅ |
-| 已知缺陷 | 无音频、无常规 HiDPI、仅 HDMI 单屏、USB-C/DP 无输出 |
+| 已知缺陷 | 无音频、无常规 HiDPI、仅 HDMI 单屏、USB-C/DP 无输出、偶发 WindowServer 毛玻璃管线崩溃（§7.3） |
 
 ---
 
@@ -244,6 +244,29 @@ NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
   常开 `=1` 后 CVDisplayLink 仍稳定。**用户确认开启后残影消失**（2026-11-20），已把 `debug.phxfb_dbuf=1`
   写入 `/usr/local/bin/phxdisplay.sh`（开机重试直到 OID 可用）持久化。临时关闭：`sudo sysctl -w debug.phxfb_dbuf=0`。
 - 驱动侧另有 `debug.phxfb_dbuf_state` / `_flips` / `_waits` / `_wait_timeouts` / `_wait_max_us` 可观测。
+
+### 7.3 偶发 WindowServer 崩溃（毛玻璃管线）与剩余卡顿
+
+- 2026-11-20 14:48 出现一次黑屏：`WindowServer` SIGSEGV（`EXC_BAD_ACCESS 0x212`），launchd 随即重启；
+  崩溃栈为 `CA::OGL::BlurState::narrow_blur` → `CA::OGL::GaussianBlurFilter::render` →
+  `MetalContext::draw` → `nvmtl_vk_pipeline_create_rt` → `radv_CreateGraphicsPipelines`
+- 这是 **NVMTL/RADV 创建毛玻璃（backdrop blur）渲染管线时的驱动段错误**，不是 `dbuf`/`vbl-timing`：
+  当时 `phxfb_dbuf_wait_timeouts=0`、`nvaccel_iop_fail=0`，显示翻转正常
+- 缓解：`defaults write com.apple.universalaccess reduceTransparency -bool true`（下次登录生效），
+  减少系统毛玻璃图层与 blur 管线；撤销：把 `true` 改成 `false`
+- 卡顿量化：简单 60 fps 动画 58.8 fps、无 >40 ms 空档；3 个毛玻璃页面 56.9 fps，
+  约 10–13% 的帧间隔为 33 ms，WindowServer CPU 27–46%。残余卡顿是 **blur 合成 CPU 开销**，
+  `dbuf`/`phx_pm_mode`/`surface_gpu_on` 的 A/B 都在噪声内；67 ms 空档已由 §7.2 修掉
+
+### 7.4 蓝牙：AX200 的 USB 蓝牙设备未枚举
+
+Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙应为 USB `8087:0029`，但 IORegistry
+全树没有该设备，`IntelBluetoothFirmware` 不加载，`system_profiler` 只显示假的 `BCM_4350C2`（UART，State Off）。
+
+已启用 `USBPorts.kext`（K8 xHCI map，含 15b9/15ba 的 HS05 internal 端口）并重启验证：键盘/鼠标正常，
+但 XHC3/XHC4 的 internal USB2 `PRT1`（connector 9）仍为空。判断不是 kext 或端口映射问题，而是
+**BT 模块 USB 未供电/未接线，或 BIOS 关闭了 Bluetooth**；下一步是 BIOS 检查、彻底断电冷启动，
+或使用 USB 蓝牙 dongle。
 
 ## 8. 证据
 
