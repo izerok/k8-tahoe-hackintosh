@@ -178,10 +178,11 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **撕裂 / 67 ms 卡顿**：需要 fork 的 `phxaccel-dbuf` / `phxaccel-vbl-timing` 补丁；官方 0.4.0 的 kext **没有** `debug.phxfb_dbuf`
 - **WindowServer CPU 偏高**：官方插件每帧开销大；参考项目的 `nvmtl-*` 性能补丁可降到 25–40%
 - **有线网卡 panic**：`RTL812xLucy` v1.1.3 在 fq_codel 断言（`classq_fq_codel.c:1127`）下崩溃过一次，panic 栈直接指向该 kext（`RTL8125::outputStart`），属驱动侧 bug；暂未复现
-- **窗口捕获崩溃（2026-11-20 更新：动态壁纸已不崩）**：nullarc 的 Metal 缺陷——`MetalBacking::AbortWithTextureInfo` → `MetalIOSurfaceBacking::PrepareForUse` → `CaptureSurfaceMetal::Populate` → `WS::Capture::create_iosurface_for_window_list`，WindowServer SIGABRT。**装上 NVMTL 四个性能补丁后，动态壁纸的播放与切换不再触发该崩溃（实机复测通过）**；仍会触发的是截屏、录屏、共享屏幕和锁屏界面（见下一条）。WindowServer 会自动重启，自动登录可回到桌面。
+- **窗口捕获崩溃（已修复，2026-11-20）**：根因是 PhxBringup 每进程 GPU 页表 2 GiB 上限 + 显存池偏小。按 `phxbringup-ptfix` 语义把页表 64→256 块（≈8 GiB）、VRAM hi 1536→3840 MiB、GTT 512→2048 MiB（单块 1024）后，截屏/录屏/锁屏不再崩，锁屏动态壁纸正常；`vkfill` 可申请总量 2032 → **6128 MB**。若复现，内核日志会出现 `PhxBringup: GPU page tables of context N full`。
+- **Vision/OCR 闪退（已修复，2026-11-20）**：插件加载 `nn-hide` 补丁（`patches/nvmtl-nn-hide.patch`），让 Core ML/Vision 的推理栈看不到 GPU、改在 CPU 推理，程序自身 Metal 仍用 780M；QQ 扫码、Shottr OCR 不再崩溃。
 - **无 HiDPI**：PhxAMDFB 只报告固件 GOP 的单模式
 - **仅 HDMI 单屏**：0.4.0 不驱动外接 PHY
-- **锁屏也会触发同一缺陷（2026-11-20 新增）**：锁屏界面会做一次窗口捕获，同样命中 `MetalBacking::AbortWithTextureInfo`；更糟的是崩溃后重启的 WindowServer 可能主线程卡死，被 `userspace_watchdog_timeout` 杀掉（实测 40 秒无响应），表现为持续黑屏。`phxboot.sh` 检测到上一次启动未完成会自动创建 `phxboot-off` 关闭 GPU，需删除该文件并重启才能恢复加速。**日常不要锁屏/截屏/录屏/共享屏幕**；可在 系统设置 → 锁屏 中把"需要密码"设为"永不"、屏保设为"永不"，避免误触。
+- **锁屏（2026-11-20 复测：正常）**：同一池上限修复后，锁屏/解锁正常，动态壁纸在锁屏界面正常显示；早先的 watchdog 卡死不再复现。
 - **USB-C / DP 外接显示器无信号**：nullarc 0.4.0 不驱动外接显示 PHY，只靠固件 GOP 在 **HDMI head 0** 上点亮。实机验证：`system_profiler` 只报一个 `Internal` 显示；`debug.phxfb1_hw` 不存在（head 1 未实现）；DP 热插拔寄存器 `0x53e4` = `0x00000000`。USB-C 口在 macOS 下仅数据可用，第二块屏要等驱动支持 `phxfb2`。
 - **显存 2 GB**：由 BIOS 的 UMA Frame Buffer 分配决定；2560×1600 够用，想上 4K 建议调大
 - **显示器尺寸误报**：关于本机里"42 英寸"是 PhxAMDFB 报的尺寸，实际为 27 英寸，不影响使用
