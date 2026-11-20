@@ -378,3 +378,19 @@ DP 训练无法开始。已回滚到 main vbl/dbuf Accel；工具快照在私有
 - **`izerok/nullarc`**（`hdmi-fb2` 分支）：780M 加速与 fork 版 kext
 - **Cobalt64 / nullmoth**：RDNA3 macOS 驱动研究
 - **Mieze**：RTL812xLucy；**OpenIntelWireless / laobamac / lshbluesky**：AX200 驱动 fork
+
+## 9. Docker / Kiri（2026-11-20）
+
+K8 上可以在 AMD Ryzen 黑苹果里跑容器：**RyzenHV**（`OverlordDev/ryzen-hypervisor.framework`，MIT）
+内核扩展用 AMD-V/SVM 实现了 Apple `Hypervisor.framework` 的后端（`kern.hv_support` 原本为 0，
+这是 Kiri/Docker Desktop/VirtualBox 等所有走该框架的 VM 应用在 AMD 上起不来的共同根因）。
+
+- RyzenHV 0.7.8 **native 模式**：kext 经 `hv_support_kext` 接口注册为 hypervisor provider，
+  boot-args `rhv_enable_svm=1 rhv_allow_users=1 rhv_hv=1`；`rhv-info hv` 报 SVM/NPT/TPR shadow 全部就绪
+- `kern.hv_support` 每次重启后回 0，由 `rhv autostart install` 的 LaunchDaemon 置 1
+- **Kiri 0.2.2**（走 Hypervisor.framework 的容器引擎）：装 RyzenHV 后从
+  `VM did not boot: this Mac does not support virtualization` 变为完全可用——
+  `hello-world`、`nginx -p 8080:80` + `curl` 200、`ps/rm` 均正常
+- Docker Desktop 4.97.0 验证可运行（RyzenHV native 模式无需 shim），本机已卸载、由 Kiri 覆盖需求
+- 已知边界：RyzenHV 实验性（无 entitlement 检查、睡眠/唤醒未验证、Tahoe 非上游实测版本）；
+  compose/build/K8s（`kiri k8s start`）尚未测试
