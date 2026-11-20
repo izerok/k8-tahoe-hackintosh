@@ -28,10 +28,10 @@
 | OpenCore 引导 / 安装 | ✅ 无需 U 盘，内置盘独立启动 |
 | 有线网络 | ✅ RTL8125（RTL812xLucy） |
 | Wi-Fi / 蓝牙 | ⚠️ Wi-Fi 驱动已加载（en3，当前未关联、走有线）；蓝牙未加载（AX200 的 USB 蓝牙设备未枚举） |
-| 音频 | ❌ 无输出设备：Tahoe 已移除 AppleHDA，AppleALC 处于关闭状态 |
+| 音频 | ✅ VoodooHDA_BL 3.7.1（`15e3` HDA）：耳机/扬声器输出 + 模拟麦克风；codec 被标成 Conexant |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
 | 玻璃/毛玻璃效果 | ✅ |
-| 已知缺陷 | 无音频、无常规 HiDPI、仅 HDMI 单屏、USB-C/DP 无输出、偶发 WindowServer 毛玻璃管线崩溃（§7.3） |
+| 已知缺陷 | 无常规 HiDPI、仅 HDMI 单屏、USB-C/DP 无输出、偶发 WindowServer 毛玻璃管线崩溃（§7.3） |
 
 ---
 
@@ -190,9 +190,11 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **USB-C / DP 外接显示器无信号**：nullarc 0.4.0 不驱动外接显示 PHY，只靠固件 GOP 在 **HDMI head 0** 上点亮。实机验证：`system_profiler` 只报一个 `Internal` 显示；`debug.phxfb1_hw` 不存在（head 1 未实现）；DP 热插拔寄存器 `0x53e4` = `0x00000000`。USB-C 口在 macOS 下仅数据可用。新 main `3497d87` 增加了动态 **HDMI** 第二头（`debug.phxfb_hdmi`），但 **USB-C/DP 仍未驱动**（无 `phxfb1_hw`、`0x53e4=0`），第二块屏仍需等 `phxfb2`。
 - **显存 2 GB**：由 BIOS 的 UMA Frame Buffer 分配决定；2560×1600 够用，想上 4K 建议调大
 - **显示器尺寸误报**：关于本机里"42 英寸"是 PhxAMDFB 报的尺寸，实际为 27 英寸，不影响使用
-- **无音频（2026-11-20 确认）**：macOS 26 Tahoe **移除了 `AppleHDA.kext`**（系统与 `/Library/Extensions` 均不存在），
-  `system_profiler SPAudioDataType` 为空；EFI 里的 `AppleALC.kext` 因此处于 `Enabled=false`。AMD `AZAL`（`pci1022,15e3`）
-  有 `layout-id=7`，但要发声需要补回 AppleHDA（从旧版 macOS 提取）或改用 VoodooHDA，二者都需重新发布 AuxKC
+- **音频（2026-11-20 已解决）**：Tahoe 移除了 `AppleHDA`，但笔记本线（Wujie 14 Pro）的
+  `VoodooHDA_BL.kext` 3.7.1 直接匹配 AMD `15e3` HDA。经 OpenCore `Kernel → Add` 注入后，
+  系统出现“Conexant (Unknown): Headphones”默认输出和“Microphone (Analog)”输入，`afplay` 正常。
+  注意：Tahoe 会拒绝未签名 kext 的运行时加载，必须走引导注入；同时已禁用 `IntelBTPatcher.kext`
+  （Tahoe 上 Hook 私有符号可致早期 Kernel Trap）
 - **OpenCore 为 DEBUG 版**（`Misc → Debug → Target = 67`），稳定后可换 RELEASE 或把 Target 调小
 - **选单等待（2026-11-20 已验证）**：`Timeout=5` + `ShowPicker=true`；实机 OpenCore 日志
   `OCB: Showing menu...`（04.319 s）→ `OCB: Should boot from 1. macx`（09.399 s），间隔 **5.08 秒**，
@@ -267,6 +269,30 @@ Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙�
 但 XHC3/XHC4 的 internal USB2 `PRT1`（connector 9）仍为空。判断不是 kext 或端口映射问题，而是
 **BT 模块 USB 未供电/未接线，或 BIOS 关闭了 Bluetooth**；下一步是 BIOS 检查、彻底断电冷启动，
 或使用 USB 蓝牙 dongle。
+
+### 7.5 音频与空载功耗（2026-11-20）
+
+- **音频**：`VoodooHDA_BL.kext` 3.7.1（Wujie 14 Pro 笔记本线）经 OpenCore `Kernel → Add` 注入，
+  `IOPCIPrimaryMatch 0x15e31022` 命中 K8 的 `AZAL`；输出/麦克风正常，codec 名误报为 Conexant
+- **GFXOFF**：`debug.phx_pm_gfxoff=1`（fork PhxBringup build 37 的 PM）让 PMFW 空闲时给 GPU 断电；
+  空闲 socket 47 W → 27 W，`gfxoff_state=1`，有活动时自动唤醒
+- **时钟门控**：`gpucg.sh all`（GC 11.0.1 的 MGCG/CGCG/CGLS，15XA 笔记本线）再降到 **23.4 W**，
+  温度 54.5 → **50.1 °C**；GPU 仍 800 MHz、Metal 3、WindowServer 正常
+- 持久化：`debug.phx_pm_gfxoff=1` 在 `k8tuned.sh`；`gpucg.sh all` 在 `phxdisplay.sh` 开机重试执行
+- 蓝牙虽无硬件，但 `bluetoothd` 每 8–9 分钟 EXC_GUARD 重启一次，已
+  `launchctl disable system/com.apple.bluetoothd` 停掉这个 crash loop
+
+### 7.6 780M 笔记本线 vs 迷你主机线：还可推进什么
+
+- **笔记本线（Wujie 14 Pro / 15XA）**：USB-C DP 第二屏（`phxfb2=1`/`phxfb3=1` + `tools/hdmi` 的 DMUB/DP 训练）；
+  `WujieXhciIntx` 用 INTx 取代轮询；CPU PM/CPPC；快速静音启动；HiDPI；BTLEAdvFixup/ForbiddenItlwm（需 BT 硬件）
+- **迷你主机线（F7BSC）**：vbl-timing、dbuf、4 个 NVMTL 补丁、ptfix 池上限、gfx-idle mesboot、thermal 脚本、§7.1 绕法
+- **K8 已采纳**：vbl-timing/dbuf/NVMTL/ptfix/gfx-idle/thermal、VoodooHDA_BL、GFXOFF、gpucg、禁用 IntelBTPatcher/BT daemon
+- **下一阶段优先级**：
+  1. USB-C/HDMI 第二屏（高价值/高风险，需要 K8 VBIOS + DMUB 固件 + 不回读 PhxBringup；K8 USB-C 是否 DP Alt Mode 未验证）
+  2. `WujieXhciIntx`（中高风险，需替换 XhciNudge，失败会丢键鼠）
+  3. CPU PM/CPPC（中风险，可能与 DummyPowerManagement 冲突）
+  4. 快速启动/去 `-v`（低风险，纯观感）
 
 ## 8. 证据
 
