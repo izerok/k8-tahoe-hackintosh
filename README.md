@@ -27,10 +27,11 @@
 |---|---|
 | OpenCore 引导 / 安装 | ✅ 无需 U 盘，内置盘独立启动 |
 | 有线网络 | ✅ RTL8125（RTL812xLucy） |
-| Wi-Fi / 蓝牙 | ⚠️ 驱动已注入，未做完整实测 |
+| Wi-Fi / 蓝牙 | ⚠️ Wi-Fi 驱动已加载（en3，当前未关联、走有线）；蓝牙未加载（AX200 的 USB 蓝牙设备未枚举） |
+| 音频 | ❌ 无输出设备：Tahoe 已移除 AppleHDA，AppleALC 处于关闭状态 |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
 | 玻璃/毛玻璃效果 | ✅ |
-| 已知缺陷 | 残影、WindowServer CPU 偏高、无常规 HiDPI、仅 HDMI 单屏 |
+| 已知缺陷 | 无音频、无常规 HiDPI、仅 HDMI 单屏、USB-C/DP 无输出 |
 
 ---
 
@@ -189,8 +190,13 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **USB-C / DP 外接显示器无信号**：nullarc 0.4.0 不驱动外接显示 PHY，只靠固件 GOP 在 **HDMI head 0** 上点亮。实机验证：`system_profiler` 只报一个 `Internal` 显示；`debug.phxfb1_hw` 不存在（head 1 未实现）；DP 热插拔寄存器 `0x53e4` = `0x00000000`。USB-C 口在 macOS 下仅数据可用。新 main `3497d87` 增加了动态 **HDMI** 第二头（`debug.phxfb_hdmi`），但 **USB-C/DP 仍未驱动**（无 `phxfb1_hw`、`0x53e4=0`），第二块屏仍需等 `phxfb2`。
 - **显存 2 GB**：由 BIOS 的 UMA Frame Buffer 分配决定；2560×1600 够用，想上 4K 建议调大
 - **显示器尺寸误报**：关于本机里"42 英寸"是 PhxAMDFB 报的尺寸，实际为 27 英寸，不影响使用
+- **无音频（2026-11-20 确认）**：macOS 26 Tahoe **移除了 `AppleHDA.kext`**（系统与 `/Library/Extensions` 均不存在），
+  `system_profiler SPAudioDataType` 为空；EFI 里的 `AppleALC.kext` 因此处于 `Enabled=false`。AMD `AZAL`（`pci1022,15e3`）
+  有 `layout-id=7`，但要发声需要补回 AppleHDA（从旧版 macOS 提取）或改用 VoodooHDA，二者都需重新发布 AuxKC
 - **OpenCore 为 DEBUG 版**（`Misc → Debug → Target = 67`），稳定后可换 RELEASE 或把 Target 调小
-- **选单等待**：模板 config 已把 `Timeout` 设为 5 秒（原为 0 = 无限等待）
+- **选单等待（2026-11-20 已验证）**：`Timeout=5` + `ShowPicker=true`；实机 OpenCore 日志
+  `OCB: Showing menu...`（04.319 s）→ `OCB: Should boot from 1. macx`（09.399 s），间隔 **5.08 秒**，
+  无需按键自动进入 `macx`
 
 ### 7.0 空闲高频（nullarc #14）已修复（2026-11-20）
 
