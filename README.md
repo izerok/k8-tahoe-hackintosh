@@ -26,7 +26,7 @@
 | 项目 | 状态 |
 |---|---|
 | OpenCore 引导 / 安装 | ✅ 无需 U 盘，内置盘独立启动 |
-| 有线网络 | ✅ RTL8125（RTL812xLucy） |
+| 有线网络 | ⚠️ RTL8125（`RTL812xLucy` 1.1.3）：下载大流量曾触发 fq_codel panic；已禁用 TSO/ASPM 与 pacing/L4S（§7.7） |
 | Wi-Fi / 蓝牙 | ⚠️ Wi-Fi 驱动已加载（en3，当前未关联、走有线）；蓝牙未加载（AX200 的 USB 蓝牙设备未枚举） |
 | 音频 | ✅ VoodooHDA_BL 3.7.1（`15e3` HDA）：耳机/扬声器输出 + 模拟麦克风；codec 被标成 Conexant |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
@@ -295,6 +295,25 @@ Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙�
   2. `WujieXhciIntx`（中高风险，需替换 XhciNudge，失败会丢键鼠）
   3. CPU PM/CPPC（中风险，可能与 DummyPowerManagement 冲突）
   4. 快速启动/去 `-v`（低风险，纯观感）
+
+### 7.7 RTL8125 fq_codel panic（2026-11-20）
+
+Chrome 点击下载按钮后整机挂死，panic：
+
+```
+assertion failed: now >= *pkt_enq_time
+classq_fq_codel.c:1127
+fq_codel_dq → fq_if_dequeue → ifnet_dequeue → RTL8125::outputStart
+com.insanelymac.RTL812xLucy 1.1.302
+```
+
+与 2026-11-19 22:11 的 panic 同栈，是网卡驱动 bug，不是 GPU/音频。已做：
+- 网卡 kext `Driver Parameters`：`enableTSO4/6=false`、`enableAspmL0s/L1=false`
+- 开机守护 `local.nicfix`：`net.classq.fq_codel.enable_pacing=0`、`enable_l4s=0`
+- boot-args 去掉 `debug=0x100`（panic 自动重启，不再黑屏空转）
+
+验证：`ifconfig en1` options 从 `46b` 变 `40b`（无 TSO）；100 MB 单流 + 2×100 MB 并行下载未复现。
+若 Chrome 下载仍崩：禁用 RTL8125，改用 AX200 Wi-Fi 或 USB 网卡。
 
 ## 8. 证据
 
