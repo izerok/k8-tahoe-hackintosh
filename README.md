@@ -30,6 +30,8 @@
 | Wi-Fi / 蓝牙 | ⚠️ Wi-Fi 驱动已加载（en3，当前未关联、走有线）；蓝牙未加载（AX200 的 USB 蓝牙设备未枚举） |
 | 音频 | ✅ VoodooHDA_BL 3.7.1（`15e3` HDA）：耳机/扬声器输出 + 模拟麦克风；codec 被标成 Conexant |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
+| USB / HID | ✅ AMD xHCI 走 INTx（WujieXhciIntx），不再 2–4 ms 轮询；kernel_task ~0.9% |
+| CPU 电源 | ✅ PhxCPPC，EPP 128；空闲 socket ~5–21 W（core 约 1–2 W） |
 | 玻璃/毛玻璃效果 | ✅ |
 | 已知缺陷 | 无常规 HiDPI、仅 HDMI 单屏、USB-C/DP 无输出、偶发 WindowServer 毛玻璃管线崩溃（§7.3） |
 
@@ -50,7 +52,7 @@
 **修复**：`XhciNudge.kext`（映射 local APIC，每 N 毫秒向每个 xHCI 的 MSI 向量补一次中断）：
 
 ```
-boot-args: ... phxdebug=1 xhcinudge=4
+boot-args: ... phxdebug=1 xhcinudge
 ```
 
 - `xhcinudge=<ms>` 是注入间隔，**单位毫秒**；`0` 关闭；默认 4
@@ -118,7 +120,7 @@ sudo "/Applications/Install macOS Tahoe.app/Contents/Resources/createinstallmedi
 
 - **关闭**笔记本专用项：`VoodooI2C`(+插件)、`VoodooI2CHID`、`VoodooPS2Controller`(+插件)、`HoRNDIS`、`RtWlanU`、`SSDT-USB-Reset`
 - **新增**：`XhciNudge.kext`（`MinKernel 21.0.0`）、`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `RTL812xLucy`、`AirportItlwm`(Tahoe fork)、`IntelBluetoothFirmware`/`IntelBTPatcher`(Tahoe fork)、`BlueToolFixup`
-- **boot-args**：`-v keepsyms=1 debug=0x100 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 xhcinudge=4`
+- **boot-args**：`-v keepsyms=1 debug=0x100 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 xhcinudge`
 - **SMBIOS**：`MacBookPro16,1` + GenSMBIOS 生成序列号/MLB/UUID + `ROM = 有线网卡 MAC`
 - `csr-active-config=7F080000`、`SecureBootModel=Disabled`、`DummyPowerManagement=true`、`ProvideCurrentCpuInfo=true`
 - 仓库内 `efi/OC/config.plist` 为**脱敏模板**（SMBIOS 为占位符），`efi/OC/ACPI/*.dsl` 为 ACPI 源文件
@@ -321,6 +323,33 @@ com.insanelymac.RTL812xLucy 1.1.302
 - `Misc.Debug.Target=1`（只 console，不向 ESP 写 `opencore-*.txt`）、`AppleDebug=false`、`LogModules=""`
 - `ocvalidate 1.0.8` 校验：No issues found
 - 实测重启后 SSH 约 30 秒回来（之前 45–55 秒），ESP 不再新增 OpenCore 日志；`Timeout=5` 不变
+
+### 7.9 xHCI INTx（取代 XhciNudge 轮询，2026-11-20）
+
+AMD Phoenix 的 xHCI 只有一个 MSI 向量且只由 interrupter 0 触发，AppleUSBXHCI 的非等时事件在 interrupter 1，
+所以 HID 事件会卡/只能用轮询。引入 15XA 笔记本线的 `WujieXhciIntx.kext`：
+
+- 禁用 `XhciNudge.kext`，boot-args `xhcinudge` → `wujiexhci`
+- 启动 45 秒后切 INTx；之前 2 ms 轮询兜底
+- 实测 `debug.wujiexhci`、`wujiexhci_irqs` 递增、`spurious/storms=0`，键鼠正常；
+  `kernel_task` 约 0.9%（XhciNudge 轮询时约 6–7%）
+- 回退：`sysctl -w debug.wujiexhci=0` 即时回 MSI
+
+### 7.10 AMD CPPC / EPP（2026-11-20）
+
+用 nullarc PR #21 的 `PhxCPPC.kext`（MSR CPPC），`/usr/local/bin/cppc.sh` 开机设
+`debug.phx_cppc_enable=1`、`max/min=-2`、`epp=128`、`apply=1`：
+
+- 空闲 core power **27 W → 1–2 W**，socket **35 W → ~5 W**，温度 51 → 41–45 °C
+- 4×`yes` 满载 socket ~36 W，结束后自动回落
+- 查看：`sysctl debug.phx_cppc_dump`；EPP 0=性能 … 255=省电
+
+### 7.11 USB-C / HDMI 第二屏：K8 硬件受限
+
+K8 只有 **1× HDMI 2.1**，USB-C 不走 DP Alt Mode（接显示器无信号；`0x53dc=0x12` 为 HDMI 连接，
+`0x53e4=0x00`）。主 PhxAccel 没有第二个 framebuffer（phxfb2）；15XA 的 `tools/hdmi` 还需要 K8 VBIOS、
+DMUB 固件和“不回读” PhxBringup，投入大且无硬件基础。
+替代：USB **DisplayLink** 转 HDMI/DP 适配器（走 USB 数据），或换带 DP/USB4 的迷你主机。
 
 ## 8. 证据
 
