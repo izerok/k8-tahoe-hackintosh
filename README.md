@@ -279,8 +279,10 @@ Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙�
 - **时钟门控**：`gpucg.sh all`（GC 11.0.1 的 MGCG/CGCG/CGLS，15XA 笔记本线）再降到 **23.4 W**，
   温度 54.5 → **50.1 °C**；GPU 仍 800 MHz、Metal 3、WindowServer 正常
 - 持久化：`debug.phx_pm_gfxoff=1` 在 `k8tuned.sh`；`gpucg.sh all` 在 `phxdisplay.sh` 开机重试执行
-- 蓝牙虽无硬件，但 `bluetoothd` 每 8–9 分钟 EXC_GUARD 重启一次，已
-  `launchctl disable system/com.apple.bluetoothd` 停掉这个 crash loop
+- 蓝牙虽无硬件，但**不要禁用 `bluetoothd`**：试过 `launchctl disable system/com.apple.bluetoothd` 后，
+  `ContextStoreAgent`/`logd`/`launchd` 会以 56%/36%/136% CPU 自旋重试，空闲功率反而升到 40 W；
+  已 `launchctl enable` + `bootstrap system /System/Library/LaunchDaemons/com.apple.bluetoothd.plist` 恢复。
+  它每 8–9 分钟 EXC_GUARD 重启一次的代价远小于这个自旋。
 
 ### 7.6 780M 笔记本线 vs 迷你主机线：还可推进什么
 
