@@ -185,7 +185,7 @@ tail -5 /var/log/phxboot.log              # done / armed and released
 - **无 HiDPI**：PhxAMDFB 只报告固件 GOP 的单模式
 - **仅 HDMI 单屏**：0.4.0 不驱动外接 PHY
 - **锁屏（2026-11-20 复测：正常）**：同一池上限修复后，锁屏/解锁正常，动态壁纸在锁屏界面正常显示；早先的 watchdog 卡死不再复现。
-- **USB-C / DP 外接显示器无信号**：nullarc 0.4.0 不驱动外接显示 PHY，只靠固件 GOP 在 **HDMI head 0** 上点亮。实机验证：`system_profiler` 只报一个 `Internal` 显示；`debug.phxfb1_hw` 不存在（head 1 未实现）；DP 热插拔寄存器 `0x53e4` = `0x00000000`。USB-C 口在 macOS 下仅数据可用，第二块屏要等驱动支持 `phxfb2`。
+- **USB-C / DP 外接显示器无信号**：nullarc 0.4.0 不驱动外接显示 PHY，只靠固件 GOP 在 **HDMI head 0** 上点亮。实机验证：`system_profiler` 只报一个 `Internal` 显示；`debug.phxfb1_hw` 不存在（head 1 未实现）；DP 热插拔寄存器 `0x53e4` = `0x00000000`。USB-C 口在 macOS 下仅数据可用。新 main `3497d87` 增加了动态 **HDMI** 第二头（`debug.phxfb_hdmi`），但 **USB-C/DP 仍未驱动**（无 `phxfb1_hw`、`0x53e4=0`），第二块屏仍需等 `phxfb2`。
 - **显存 2 GB**：由 BIOS 的 UMA Frame Buffer 分配决定；2560×1600 够用，想上 4K 建议调大
 - **显示器尺寸误报**：关于本机里"42 英寸"是 PhxAMDFB 报的尺寸，实际为 27 英寸，不影响使用
 - **OpenCore 为 DEBUG 版**（`Misc → Debug → Target = 67`），稳定后可换 RELEASE 或把 Target 调小
