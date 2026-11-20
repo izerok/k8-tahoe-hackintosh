@@ -344,12 +344,18 @@ AMD Phoenix 的 xHCI 只有一个 MSI 向量且只由 interrupter 0 触发，App
 - 4×`yes` 满载 socket ~36 W，结束后自动回落
 - 查看：`sysctl debug.phx_cppc_dump`；EPP 0=性能 … 255=省电
 
-### 7.11 USB-C / HDMI 第二屏：K8 硬件受限
+### 7.11 USB-C / HDMI 第二屏：K8 是 USB4 DP tunneling，macOS 无驱动
 
-K8 只有 **1× HDMI 2.1**，USB-C 不走 DP Alt Mode（接显示器无信号；`0x53dc=0x12` 为 HDMI 连接，
-`0x53e4=0x00`）。主 PhxAccel 没有第二个 framebuffer（phxfb2）；15XA 的 `tools/hdmi` 还需要 K8 VBIOS、
-DMUB 固件和“不回读” PhxBringup，投入大且无硬件基础。
-替代：USB **DisplayLink** 转 HDMI/DP 适配器（走 USB 数据），或换带 DP/USB4 的迷你主机。
+K8 只有 **1× HDMI 2.1**；USB-C 在 Windows 下能出视频，但走的是 **USB4 DP tunneling**：
+Windows `msinfo32` 有 AMD USB4 host router `1022:1668`/`1022:1669`，`usb4hostrouter` 运行中，
+另有 `displaymux`、`UCM-TCPCI`，不是原生 DP Alt Mode。
+
+实测用 QiRanChenk/nullarc `hdmi-fb2`（`phxfb2=1`/`phxfb3=1`）+ K8 VBIOS
+（`113-PHXGENERIC-001`）+ linux-firmware `dcn_3_1_4_dmcub.bin` + 15XA `tools/hdmi`：
+`0x53dc=0x12`（HDMI）、`0x53e4=0`（DP/USB-C 无 HPD），`dmubboot aux hpd` 返回 “nothing”，
+DP 训练无法开始。已回滚到 main vbl/dbuf Accel；工具快照在私有 `patches/hdmi-tools/`。
+替代：USB **DisplayLink** 转 HDMI/DP 适配器（走 USB 数据，不需要 USB4/DP tunneling），
+或换带 macOS 支持的 DP/USB4 的机器。
 
 ## 8. 证据
 
