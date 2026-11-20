@@ -4,6 +4,7 @@
 > - 实际安装版本为 **26.6.2（25G83）**，不是本文标题里的 26.7.3；安装器、EFI 与实测步骤见根 README。
 > - 安装阶段必须新增 **XhciNudge.kext + `xhcinudge=4`**：AMD Zen 4（Hawk Point）内核 USB 丢中断会让 `validate_root_image` 卡几十分钟，没有它装不上。
 > - GPU 阶段：官方 nullarc v0.4.0 在 780M（`1002:1900`）上接管会卡死在内核早期；改用 `hdmi-fb2` fork 的两个 kext 后接管成功（详见根 README §3.3）。
+> - **2026-11-20 驱动组合**：upstream main `3497d87`（build 34）+ ptfix 池参数 + NVMTL 5 补丁 + `gfx-idle` mesboot；fork kexts 已备份。残影仍需 §7.1 绕法；vbl-timing/dbuf 补丁与两套源码都冲突，67 ms/撕裂暂缓。
 > - **捕获/OCR 崩溃已解决（2026-11-20 晚）**：PhxBringup 页表/显存池上限修复后，锁屏、截屏、动态壁纸均正常；`nn-hide` 插件补丁修复 QQ/Shottr 的 Vision 推理闪退。
 > - **锁屏/截屏会崩 WindowServer**：锁屏界面做窗口捕获，命中 nullarc 缺陷（`MetalBacking::AbortWithTextureInfo`），重启后的 WindowServer 可能卡死并被 watchdog 杀死；`phxboot.sh` 会自动建 `phxboot-off` 关闭 GPU。避免锁屏/截屏/录屏；恢复加速需删 `/Users/Shared/gpu/phxboot-off` 后重启。
 > - **USB-C/DP 输出无信号**：0.4.0 只驱动 HDMI head 0（`0x53e4=0`、无 `phxfb1_hw`）；USB-C 口在 macOS 下仅数据可用。

@@ -92,6 +92,8 @@ Metal 3
 debug.nvaccel_iop_ok 持续增长
 ```
 
+**2026-11-20 运行组合（更新）**：现运行的是 upstream main `3497d87` 编译的 PhxBringup/PhxAccel（`phx-build 34`），并已按 `phxbringup-ptfix` 语义把页表 64→256、VRAM hi 1536→3840 MiB、GTT 512→2048 MiB 写入；接管正常（`PhxAMDFB on the panel: 1`，Metal 3）。fork `hdmi-fb2` 的两个 kext 与 AuxKC 已备份为回滚点。注意：`phxaccel-vbl-timing` / `phxaccel-dbuf` 补丁对 fork 和新 main **都冲突**，67 ms/撕裂暂未修。
+
 ---
 
 ## 4. 复现步骤
