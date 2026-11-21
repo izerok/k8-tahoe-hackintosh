@@ -249,6 +249,12 @@ NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
 验证：`sysctl debug.nvaccel_surface_gpu_on` 为 0；插件二进制中存在上述两个 `NVMTL_*` 键；`debug.nvaccel_iop_fail` 保持 0。
 实测结果：注销重登后残影**明显减轻但仍有残留**；再叠加 §7.2 的 `debug.phxfb_dbuf=1` 后，**用户确认残影消失**（2026-11-20）。
 
+**开机显示依赖 EDID（2026-11-21 踩坑）**：PhxAMDFB 启动时沿用固件 framebuffer 的尺寸。若开机瞬间显示器
+不在 HDMI 输入（例如输入源切到了 USB-C），固件会回退到 **3840×2160**（无 EDID），面板不支持就黑屏——
+此时系统其实完全正常（SSH 可进、WindowServer 在跑），但**运行中切回 HDMI 不会重新读 EDID**，必须重启。
+处理：确认显示器输入源=HDMI 后再重启。日志判据：`PhxFB: console: 2560x1600` 正常，`3840x2160` 异常。
+注意 PhxAMDFB 不向 IOKit 发布 `IODisplayEDID`（ioreg 计数恒为 0），不要用它判断 EDID。
+
 ### 7.2 vbl-timing / dbuf 手工移植（2026-11-20）
 
 参考项目的 `phxaccel-vbl-timing.patch` / `phxaccel-dbuf.patch` 对 fork 和 main `3497d87` 都冲突，已按 main 源码手工移植
