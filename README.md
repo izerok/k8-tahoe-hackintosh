@@ -27,7 +27,7 @@
 |---|---|
 | OpenCore 引导 / 安装 | ✅ 无需 U 盘，内置盘独立启动 |
 | 有线网络 | ⚠️ RTL8125（`RTL812xLucy` 1.1.3）：下载大流量曾触发 fq_codel panic；已禁用 TSO/ASPM 与 pacing/L4S（§7.7） |
-| Wi-Fi / 蓝牙 | ✅ 蓝牙可用：AX200 `8087:0029` 已枚举、固件已载、`State: On`（§7.14）；⚠️ Wi-Fi 驱动已加载（en3，未关联、仍走有线） |
+| Wi-Fi / 蓝牙 | ✅ 蓝牙可用：AX200 `8087:0029` 已枚举、固件已载、`State: On`（§7.14）；⚠️ Wi-Fi 驱动已加载（en3）但**只支持 WPA2 / WPA2-WPA3 混合**，WPA3-SAE 纯模式连不上（§7.15），日常走有线 |
 | 音频 | ✅ VoodooHDA_BL 3.7.1（`15e3` HDA）：耳机/扬声器输出 + 模拟麦克风；codec 被标成 Conexant |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
 | USB / HID | ✅ AMD xHCI 走 INTx（WujieXhciIntx），不再 2–4 ms 轮询；kernel_task ~0.9% |
@@ -322,7 +322,8 @@ com.insanelymac.RTL812xLucy 1.1.302
 - boot-args 去掉 `debug=0x100`（panic 自动重启，不再黑屏空转）
 
 验证：`ifconfig en1` options 从 `46b` 变 `40b`（无 TSO）；100 MB 单流 + 2×100 MB 并行下载未复现。
-用户复测 Chrome 下载也**不再崩溃**。若仍复现：禁用 RTL8125，改用 AX200 Wi-Fi 或 USB 网卡。
+用户复测 Chrome 下载也**不再崩溃**。若仍复现：禁用 RTL8125，改用 AX200 Wi-Fi 或 USB 网卡
+（注意 Wi-Fi 只支持 WPA2 / WPA2-WPA3 混合，见 §7.15；WPA3-only 环境需先改路由器）。
 
 ### 7.8 快速启动（2026-11-20）
 
@@ -453,6 +454,37 @@ NVRAM 无 panic 标记）——排障时应临时加回 `debug=0x100`。已在 `
 **另注**：iPhone 能搜到主机但配对失败属正常——macOS 只对 HID/音频等 profile 开放配对，
 `MobilePhone` 类设备会被忽略（日志里体现为 `Device lost: ... DvT MobilePhone`，无任何 pairing/SMP 事件）；
 iPhone↔Mac 的 Apple 连续性配对走 BLE+iCloud 身份，第三方蓝牙芯片不支持。验收请用蓝牙耳机/键鼠。
+
+### 7.15 Wi-Fi：WPA3-SAE 纯模式无法关联（2026-11-21）
+
+**症状**：AX200 Wi-Fi（`AirportItlwm` 2.4.0，laobamac Tahoe fork）能扫描到十几个 AP，但连接自家网络一直失败，
+菜单栏无明确报错。
+
+**airportd 日志定位**：
+
+```
+ASSOC: network ... security=wpa3-sae ...
+Failed to associate to Wi-Fi network <redacted> on interface en3
+Association failed ... com.apple.wifi.apple80211API.error Code=-3900 "tmpErr"
+```
+
+**原因**：laobamac 的 `AirportItlwm` README 明确写明支持范围：
+
+- ✅ WPA2-Personal（PSK/AES）
+- ✅ WPA2/WPA3 transition（混合模式，PMF 可选）
+- ❌ **WPA3-only（SAE）/ 强制 PMF / MLO / AWDL**
+
+日志里同一请求内 `PRIVATE MAC` 先成功创建、失败后才有 `FAILED to create private MAC ((null))`，
+那条是清理阶段的噪声，不是失败原因。
+
+**处理**
+
+1. 路由器无线安全改为 **WPA2/WPA3 混合** 或 **WPA2-PSK (AES)**（最直接）
+2. 或改用 WPA2 的 2.4G SSID / 访客网络
+3. 路由器不可改时：手机热点、USB 网络共享，或继续有线（en1 正常）
+4. 必须用 WPA3 的话只能换 macOS 原生支持的 Broadcom 卡（Tahoe 上仍需 OCLP root patch）
+
+**备注**：这与 USB 端口映射、蓝牙修复均无关；扫描、驱动加载、固件都正常（`AirportItlwm 2.4.0_7204c69 fw 68.01d30b0c.0`）。
 
 ## 8. 证据
 
