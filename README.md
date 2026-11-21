@@ -381,6 +381,25 @@ DP 训练无法开始。已回滚到 main vbl/dbuf Accel；工具快照在私有
   非 256B 对齐 surface 私有图像拷贝的**架构已知代价**，上游同样存在，无需行动；
   CoreImage 朝向/usage 补丁（`fdf98c6`）K8 未遇症状，按需。
 
+### 7.13 设置页/墙纸 tab 卡顿：A/B 与采样结论（2026-11-21）
+
+删除 `WAIT_INTERNAL` 后用户确认残影未复发，但设置页/墙纸 tab 仍比其它程序卡。做了 A/B + 采样：
+
+- **A/B 删 `NVMTL_WS_WAIT_COMPLETION=1`**：WS 主渲染线程从 CPU 忙转为阻塞在 Vulkan fence
+  （`cnd_wait`/`__vk_sync_wait_many`），系统稳定。但它是 §7.1 防残影绕法的核心，**已恢复**，
+  备份 `nvrm610.conf.bak-before-waitcompletion-test-*`
+- **采样定位**：Settings 冷启动时 WS 热点是 `nvmtl_translate` 的 SPIR-V 解析/分配
+  （rspirv parse/alloc 系列）——WindowServer 重启后首次加载 160 MB default.metallib 需全量翻译，
+  结果被 "library key memo"（整库哈希）缓存，**只有 WS 重启后第一次开设置才卡**；
+  插件 aircache（.ll 级）工作正常（SSV 侧 1300+ 条持久化），与此无关
+- **GPU 与卡顿无关**：合成瓶颈在 CPU 翻译，GPU busy 长期 0%、gfxclk 800 MHz——
+  提频（K8 Tune 1600/2600）对设置页卡顿无效
+- **最终构成（三层，均为 nullarc 架构已知项）**：
+  1. WS 冷启动后首次全量 SPIR-V 翻译（一次性，memo 缓存后消失）
+  2. `SCHEDULE_AFTER_SURFACE_WRITES=1` 防花屏代价（设置页 UI 由各进程自绘）
+  3. 非 256B 对齐 surface 的每帧私有图像拷贝（墙纸 tab 缩略图多）
+- 当前 conf 组合（dbuf=1 + WAIT_COMPLETION + SCHEDULE_AFTER，无 WAIT_INTERNAL）为已知最优
+
 ## 8. 证据
 
 - `evidence/k8-desktop-2026-11-19-redacted.png`：GPU 接管后的桌面（序列号/机器名/用户名已打码）
