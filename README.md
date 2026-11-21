@@ -400,6 +400,43 @@ DP 训练无法开始。已回滚到 main vbl/dbuf Accel；工具快照在私有
   3. 非 256B 对齐 surface 的每帧私有图像拷贝（墙纸 tab 缩略图多）
 - 当前 conf 组合（dbuf=1 + WAIT_COMPLETION + SCHEDULE_AFTER，无 WAIT_INTERNAL）为已知最优
 
+### 7.14 蓝牙：AX200 `8087:0029` 在 Tahoe 上的双层修复（2026-11-21）
+
+**症状**：`system_profiler` 只有伪造的 `BCM_4350C2`（UART、State Off），USB 树里根本没有
+Intel 蓝牙设备；Windows 下同一硬件正常。
+
+**根因 1 — 端口映射从未生效**：`USBPorts.kext` 的 bundle id 与系统
+`com.apple.driver.AppleUSBHostMergeProperties` 相同，而系统预链版本是 v1.2，注入的 v1.0 被拒：
+
+```
+Refusing new kext com.apple.driver.AppleUSBHostMergeProperties, v1.0: already have prelinked v1.2
+```
+
+于是 macOS 只按 ACPI 建端口，XHC0 的 `PRT5`（`_UPC` 判为不可连接）被跳过——而它正是蓝牙所在口
+（Windows `pnpBluetooth`：`USB\VID_8087&PID_0029\...&0&5`，同 root hub 上另有键鼠）。
+
+**修复 1**：改用 `USBToolBox.kext` + 自建 `UTBMap.kext`（独立 bundle id），XHC0 七口映射为：
+1–4 Type-A(3)、**5 Internal(255)**、6–7 Type-A(3)；XHC1 两口 Type-C(9)。
+重启后 `Bluetooth USB Host Controller@61500000` 出现且 `FirmwareLoaded=Yes`。
+
+**根因 2 — Tahoe 需要 IntelBTPatcher**：设备枚举、固件下载都正常后，bluetoothd 仍报
+`Invalid chipset 0` 并循环退出（`Configuring bluetooth device: ... [0x61500000]` 之后）。
+原版 IntelBTPatcher 的 max kernel 只到 Sequoia；需用 **lshbluesky fork 2.5.3（`DTSDKName=macosx26.2`）**。
+
+**修复 2**：启用该 `IntelBTPatcher.kext`。
+
+**验证**
+
+```
+Address: <redacted>      State: On        Chipset: THIRD_PARTY_DONGLE
+Firmware Version: v8641 c8641            Transport: USB      LMPv 11 (5.2)
+bluetoothd: 单进程、0% CPU、无 "Invalid chipset"、无重启循环
+已加载: IntelBTPatcher 2.5.3 / BlueToolFixup 2.7.3 / USBToolBox 1.2.0 / IntelBluetoothFirmware 2.5.3
+```
+
+**注意**：`THIRD_PARTY_DONGLE` 表示由 BlueToolFixup 接管，Handoff/AirDrop 等 Apple 连续性功能
+不可用（第三方蓝牙固有限制），普通键鼠/耳机/GATT 正常；BT MAC 属硬件标识，本仓不记录。
+
 ## 8. 证据
 
 - `evidence/k8-desktop-2026-11-19-redacted.png`：GPU 接管后的桌面（序列号/机器名/用户名已打码）

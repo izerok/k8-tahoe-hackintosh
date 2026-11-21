@@ -394,9 +394,9 @@
 				<key>BundlePath</key>
 				<string>IntelBTPatcher.kext</string>
 				<key>Comment</key>
-				<string>IntelBTPatcher lshbluesky fork v2.5.3 (Tahoe)</string>
+				<string>lshbluesky fork v2.5.3 (SDK 26.2) - required for Tahoe chipset detect</string>
 				<key>Enabled</key>
-				<false/>
+				<true/>
 				<key>ExecutablePath</key>
 				<string>Contents/MacOS/IntelBTPatcher</string>
 				<key>MaxKernel</key>
@@ -738,7 +738,7 @@
 				<key>Comment</key>
 				<string></string>
 				<key>Enabled</key>
-				<false/>
+				<true/>
 				<key>ExecutablePath</key>
 				<string>Contents/MacOS/USBToolBox</string>
 				<key>MaxKernel</key>
@@ -754,9 +754,9 @@
 				<key>BundlePath</key>
 				<string>UTBMap.kext</string>
 				<key>Comment</key>
-				<string>Custom USB Port Map for Firebat U6C</string>
+				<string>K8 xHCI map (USBToolBox) - XHC0 PRT5 internal BT for AX200</string>
 				<key>Enabled</key>
-				<false/>
+				<true/>
 				<key>ExecutablePath</key>
 				<string></string>
 				<key>MaxKernel</key>
@@ -1006,9 +1006,9 @@
 				<key>BundlePath</key>
 				<string>USBPorts.kext</string>
 				<key>Comment</key>
-				<string>K8 xHCI map - disabled (XhciNudge is the fix)</string>
+				<string>disabled: v1.0 refused on Tahoe (prelinked AppleUSBHostMergeProperties v1.2); replaced by USBToolBox+UTBMap</string>
 				<key>Enabled</key>
-				<true/>
+				<false/>
 				<key>ExecutablePath</key>
 				<string></string>
 				<key>MaxKernel</key>
