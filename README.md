@@ -486,6 +486,30 @@ Association failed ... com.apple.wifi.apple80211API.error Code=-3900 "tmpErr"
 
 **备注**：这与 USB 端口映射、蓝牙修复均无关；扫描、驱动加载、固件都正常（`AirportItlwm 2.4.0_7204c69 fw 68.01d30b0c.0`）。
 
+### 7.16 AirDrop：需要 AWDL，当前驱动不支持（2026-11-21）
+
+**现象**：Wi-Fi 正常连上（WPA2）后，iPhone 与主机互相仍看不到/无法 AirDrop。
+
+**原因**：AirDrop 的发现与传输走 **AWDL**（Apple Wireless Direct Link），需要网卡驱动创建并维护
+`awdl0` 接口。`AirportItlwm`（含 laobamac Tahoe fork 2.4.0）**不实现 AWDL**：
+
+- `ifconfig -a` 里 **没有 `awdl0`**
+- airportd 日志持续报 `AWDL REALTIME is inactive`
+- 上游 README 明确写：AWDL / AirDrop / MLO 不支持
+
+**社区现状**：目前唯一给 Intel 卡补 AWDL 的是 **ForbiddenItlwm**（含 BTLEAdvFixup），
+但它只支持 **26.7.1 (25G241) / 26.7.2 (25G332) / 26.7.3 (25G342)**；本机 **26.6.2 (25G83) 不在支持范围**
+（驱动在该 build 上会关闭 AirDrop、只作普通 Wi-Fi 用）。升级到 26.7.x 是唯一软件路径，但本机 GPU 栈
+（PhxAccel/AuxKC）与小版本强相关，升级需重做，风险高。
+
+**可选方案**
+
+| 方案 | 说明 |
+|---|---|
+| LocalSend / PairDrop 等局域网工具 | 跨平台、走普通 TCP，最快可用；iPhone 装 App 即可 |
+| 升级到 26.7.x + ForbiddenItlwm | 社区实测 AirDrop 可用（AX211/AX210），但需重做 GPU 栈，风险高 |
+| 换 Broadcom 卡（BCM94360 系） | 原生 AirDrop/Handoff；Tahoe 仍需 OCLP root patch，与现有 GPU 补丁叠加需谨慎 |
+
 ## 8. 证据
 
 - `evidence/k8-desktop-2026-11-19-redacted.png`：GPU 接管后的桌面（序列号/机器名/用户名已打码）
