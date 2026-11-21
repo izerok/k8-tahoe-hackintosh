@@ -120,12 +120,22 @@ sudo "/Applications/Install macOS Tahoe.app/Contents/Resources/createinstallmedi
 
 以 Firebat U6C 的 EFI 为底座（同款 H 255 APU），针对 K8 修改：
 
-- **关闭**笔记本专用项：`VoodooI2C`(+插件)、`VoodooI2CHID`、`VoodooPS2Controller`(+插件)、`HoRNDIS`、`RtWlanU`、`SSDT-USB-Reset`
-- **新增（2026-11-19）**：`XhciNudge.kext`（`MinKernel 21.0.0`）、`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `RTL812xLucy`、`AirportItlwm`(Tahoe fork)、`IntelBluetoothFirmware`/`IntelBTPatcher`(Tahoe fork)、`BlueToolFixup`
-- **2026-11-20 变更（与当前模板一致）**：
-  - **禁用** `XhciNudge.kext` 与 `IntelBTPatcher.kext`（后者在 Tahoe 上 Hook 私有符号可致 Kernel Trap 14）
-  - **新增** `WujieXhciIntx.kext`（xHCI INTx，§7.9）、`VoodooHDA_BL.kext`（音频，§7.5）、
-    `PhxCPPC.kext`（CPU PM，§7.10）、`RyzenHV.kext`（Docker/Hypervisor 后端，§9）
+- **删除**笔记本/台式无关项：`VoodooI2C`(+插件)、`VoodooI2CHID`、`VoodooPS2Controller`(+插件)、`HoRNDIS`、
+  `RtWlanU`、`RtWlanU1827`、`Rtl89Driver`、`RealtekCardReader`、`RealtekBluetoothFirmware`、`SMCBatteryManager`、
+  `SMCLightSensor`、`BrightnessKeys`、`NootedRed`、`RDNA3Driver`、`AppleALC`、`NVMeFix`、`DebugEnhancer`、
+  `UTBDefault`、`SSDT-USB-Reset`（2026-11-21 已从 ESP 物理删除）
+- **新增**：`PhxBringup.kext`（`MinKernel 25.0.0`）、有线网卡 `RTL812xLucy`、`AirportItlwm`(Tahoe fork)、
+  `IntelBluetoothFirmware` + `IntelBTPatcher`（lshbluesky Tahoe fork）、`BlueToolFixup`、
+  `WujieXhciIntx.kext`（xHCI INTx，§7.9）、`VoodooHDA_BL.kext`（音频，§7.5）、
+  `PhxCPPC.kext`（CPU PM，§7.10）、`RyzenHV.kext`（Docker/Hypervisor 后端，§11）、`USBToolBox` + `UTBMap`（§7.14）
+- **2026-11-21 变更（与当前模板一致）**：
+  - **OpenCore 1.0.8 DEBUG → RELEASE**（`nvram …:opencore-version` = `REL-108-2026-09-27`），配置 45 → 22 项、
+    `ocvalidate` 无问题
+  - `IntelBTPatcher` **重新启用**（lshbluesky fork 2.5.3，`DTSDKName macosx26.2`）——Tahoe 蓝牙必需（§7.14）
+  - `USBPorts.kext` 禁用（Tahoe 拒绝 v1.0 注入），改用 **`USBToolBox` + `UTBMap`**（§7.14）
+  - `BTLEAdvFixup` 已装入但**禁用**（25G83 早期 panic，见 §7.14 踩坑记录）
+  - `XhciNudge` 仍禁用（由 `WujieXhciIntx` 取代）
+  - 保留 3 个禁用备用：`XhciNudge`、`USBPorts`、`BTLEAdvFixup`
   - boot-args 见 §3；完整启用列表以 `efi/OC/config.plist` 为准
 - **boot-args（当前模板）**：`keepsyms=1 msgbuf=1048576 revpatch=cpuname,sbvmm ipc_control_port_options=0 amfi=0x80 amfi_get_out_of_my_way=0x1 -amfipassbeta phxdebug=1 wujiexhci rhv_enable_svm=1 rhv_allow_users=1 rhv_hv=1`（无 `-v`、无 `debug=0x100`——前者只是观感，后者会让 panic 停在黑屏；`wujiexhci` 见 §7.9，`rhv_*` 见 §9）
 - **SMBIOS**：`MacBookPro16,1` + GenSMBIOS 生成序列号/MLB/UUID + `ROM = 有线网卡 MAC`
@@ -325,8 +335,10 @@ com.insanelymac.RTL812xLucy 1.1.302
 用户复测 Chrome 下载也**不再崩溃**。若仍复现：禁用 RTL8125，改用 AX200 Wi-Fi 或 USB 网卡
 （注意 Wi-Fi 只支持 WPA2 / WPA2-WPA3 混合，见 §7.15；WPA3-only 环境需先改路由器）。
 
-### 7.8 快速启动（2026-11-20）
+### 7.8 快速启动（2026-11-20，2026-11-21 更新）
 
+- **OpenCore 1.0.8 已换 RELEASE**（原 DEBUG）：`OpenCore.efi` 868 KB → 627 KB、`BOOTx64.efi` 53 KB → 25 KB，
+  启动到 SSH 约 15–20 s；旧 DEBUG 二进制保留为 `*.debug-bak-*` 可回退
 - boot-args 去掉 `-v`（保留 `keepsyms=1`、`msgbuf`）
 - `Misc.Debug.Target=1`（只 console，不向 ESP 写 `opencore-*.txt`）、`AppleDebug=false`、`LogModules=""`
 - `ocvalidate 1.0.8` 校验：No issues found
