@@ -437,6 +437,16 @@ bluetoothd: 单进程、0% CPU、无 "Invalid chipset"、无重启循环
 **注意**：`THIRD_PARTY_DONGLE` 表示由 BlueToolFixup 接管，Handoff/AirDrop 等 Apple 连续性功能
 不可用（第三方蓝牙固有限制），普通键鼠/耳机/GATT 正常；BT MAC 属硬件标识，本仓不记录。
 
+**踩坑记录（2026-11-21）**：曾尝试 Wujie 14 Pro 参考 EFI 里的 `BTLEAdvFixup.kext` 0.9.3 +
+boot-arg `-btleadv` 来改善 BLE 广播，在 **26.6.2 / 25G83** 上直接早期 panic 并自动重启（无限重启）。
+该 kext 是 26.7.3 / 25G342 编译，符号不匹配；且由于本机 boot-args 移除了 `debug=0x100`，
+panic 不留屏、也不留报告（DiagnosticReports 无新增、NVRAM 无 panic 标记）。已在 `Kernel→Add` 中禁用并回滚。
+教训：跨小版本拿 Lilu 插件要先确认目标 build，`debug=0x100` 在排障时最好临时加回。
+
+**另注**：iPhone 能搜到主机但配对失败属正常——macOS 只对 HID/音频等 profile 开放配对，
+`MobilePhone` 类设备会被忽略（日志里体现为 `Device lost: ... DvT MobilePhone`，无任何 pairing/SMP 事件）；
+iPhone↔Mac 的 Apple 连续性配对走 BLE+iCloud 身份，第三方蓝牙芯片不支持。验收请用蓝牙耳机/键鼠。
+
 ## 8. 证据
 
 - `evidence/k8-desktop-2026-11-19-redacted.png`：GPU 接管后的桌面（序列号/机器名/用户名已打码）
