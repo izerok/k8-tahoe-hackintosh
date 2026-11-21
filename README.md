@@ -439,9 +439,16 @@ bluetoothd: 单进程、0% CPU、无 "Invalid chipset"、无重启循环
 
 **踩坑记录（2026-11-21）**：曾尝试 Wujie 14 Pro 参考 EFI 里的 `BTLEAdvFixup.kext` 0.9.3 +
 boot-arg `-btleadv` 来改善 BLE 广播，在 **26.6.2 / 25G83** 上直接早期 panic 并自动重启（无限重启）。
-该 kext 是 26.7.3 / 25G342 编译，符号不匹配；且由于本机 boot-args 移除了 `debug=0x100`，
-panic 不留屏、也不留报告（DiagnosticReports 无新增、NVRAM 无 panic 标记）。已在 `Kernel→Add` 中禁用并回滚。
-教训：跨小版本拿 Lilu 插件要先确认目标 build，`debug=0x100` 在排障时最好临时加回。
+**社区文档（ForbiddenItlwm `docs/INSTALL.md`）给出真正原因**：`BTLEAdvFixup` 与 `IntelBTPatcher`
+hook 同一个函数，**Lilu 遇到双插件 hook 会直接 panic**——当时两者同时启用才是 panic 主因；
+正确组合是 `IntelBluetoothFirmware + BlueToolFixup + BTLEAdvFixup`，**必须关闭 IntelBTPatcher**，
+由 BTLEAdvFixup 接管它的职责。
+
+另外 `BTLEAdvFixup` 的补丁模式是从具体 bluetoothd 提取的字节，Tahoe 版只覆盖 **26.7.1 (25G241)、
+26.7.2 (25G332)、26.7.3 (25G342)**；25G83 不在其中，模式不匹配时它**不会 panic，只是不生效**
+（要支持 25G83 需从本机 bluetoothd 重新提取四个 site 并重编：`BTLEAdvPatches.hpp` + `tools/build_btleadv.py`）。
+同时因为本机 boot-args 移除了 `debug=0x100`，panic 不留屏、也不留报告（DiagnosticReports 无新增、
+NVRAM 无 panic 标记）——排障时应临时加回 `debug=0x100`。已在 `Kernel→Add` 中禁用并回滚。
 
 **另注**：iPhone 能搜到主机但配对失败属正常——macOS 只对 HID/音频等 profile 开放配对，
 `MobilePhone` 类设备会被忽略（日志里体现为 `Device lost: ... DvT MobilePhone`，无任何 pairing/SMP 事件）；
