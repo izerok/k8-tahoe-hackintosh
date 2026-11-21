@@ -244,6 +244,9 @@ NVMTL_WS_WAIT_COMPLETION=1
 NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
 ```
 
+**2026-11-21 追加**：conf 还包含 `NVMTL_PIPELINE_THREADS=1`（WindowServer pipeline 崩溃规避，见 §7.17；
+它只覆盖异步编译路径，不覆盖 CA 的同步调用）。
+
 `debug.*` sysctl 每次重启会重置，需要开机自启（参考实现：`/usr/local/bin/phxdisplay.sh` + `/Library/LaunchDaemons/local.phxdisplay.plist`，`RunAtLoad` 执行 `sysctl -w debug.nvaccel_surface_gpu_on=0`）。
 
 验证：`sysctl debug.nvaccel_surface_gpu_on` 为 0；插件二进制中存在上述两个 `NVMTL_*` 键；`debug.nvaccel_iop_fail` 保持 0。
@@ -527,6 +530,39 @@ Association failed ... com.apple.wifi.apple80211API.error Code=-3900 "tmpErr"
 | LocalSend / PairDrop 等局域网工具 | 跨平台、走普通 TCP，最快可用；iPhone 装 App 即可 |
 | 升级到 26.7.x + ForbiddenItlwm | 社区实测 AirDrop 可用（AX211/AX210），但需重做 GPU 栈，风险高 |
 | 换 Broadcom 卡（BCM94360 系） | 原生 AirDrop/Handoff；Tahoe 仍需 OCLP root patch，与现有 GPU 补丁叠加需谨慎 |
+
+### 7.17 WindowServer 崩溃：radv_CreateGraphicsPipelines（2026-11-21）
+
+**症状**：桌面突然消失回到登录界面（WindowServer 重启），系统本身不重启、SSH 正常、无内核 panic。
+
+**崩溃报告**（`WindowServer-*.ips`，EXC_BAD_ACCESS / SIGSEGV）：
+```
+libvulkan_radeon  radv_CreateGraphicsPipelines
+NVMTLDriver       nvmtl_opaque_CreateGraphicsPipelines
+NVMTLDriver       nvmtl_vk_pipeline_create_impl
+NVMTLDriver       nvmtl_vk_pipeline_create_rt
+NVMTLDriver       -[NVMTLDevice newRenderPipelineStateWithDescriptor:error:]
+QuartzCore        CA::OGL::MetalContext::create_pipeline_state
+```
+同一栈出现 2 次（11-20 14:48 高斯模糊、11-21 17:45）。上游 main 仍为 `3497d87`，
+release 仍 `v0.4.0-alpha`，nullarc issues 无对应报告；BUGS.md 只有 B-12（首次特效卡顿）与 B-22（缓存被误关）。
+
+**分析（决定了哪些手段有用）**
+- `NVMTL_PIPELINE_THREADS`（官方旋钮）只限制**异步**接口
+  `newRenderPipelineStateWithDescriptor:completionHandler:` 的编译队列宽度（1 = 旧的串行行为）；
+- 崩溃栈走**同步**接口 → `nvmtl_vk_pipeline_create_rt` → radv，**不经过该队列**，也未见串行锁；
+  CA 的 `dispatch_async_pipeline` 会并发调用同步接口。
+- 因此该旋钮对 WindowServer 这条崩溃路径**大概率无效**，不能当修复。
+
+**已做的规避**
+1. conf 增加 `NVMTL_PIPELINE_THREADS=1`（验证方法：用带 `NVMTL_LOG_PATH` 的**异步**探针，
+   日志出现 `pipeline compile: 1 asynchronous builds at a time`；同步接口不会建队列，所以 WindowServer
+   的日志里看不到这一行）
+2. 清空 nvmtl `aircache`/`spvcache`、Mesa shader cache、root 与 SSV 侧 `aircache`（自动重建，
+   首次启动会略慢）
+3. 复核并补回丢失的 `NVMTL_WS_WAIT_COMPLETION=1`（防残影键，曾从 conf 中消失；建议每次重启 `od -c` 复核）
+
+**若再犯**：开启「降低透明度」减少 blur pipeline 创建（此前实测有效），或由上游在同步路径串行化 / 修 radv 竞态。
 
 ## 8. 证据
 
