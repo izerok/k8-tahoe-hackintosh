@@ -27,7 +27,7 @@
 |---|---|
 | OpenCore 引导 / 安装 | ✅ 无需 U 盘，内置盘独立启动 |
 | 有线网络 | ⚠️ RTL8125（`RTL812xLucy` 1.1.3）：下载大流量曾触发 fq_codel panic；已禁用 TSO/ASPM 与 pacing/L4S（§7.7） |
-| Wi-Fi / 蓝牙 | ⚠️ Wi-Fi 驱动已加载（en3，当前未关联、走有线）；蓝牙未加载（AX200 的 USB 蓝牙设备未枚举） |
+| Wi-Fi / 蓝牙 | ✅ 蓝牙可用：AX200 `8087:0029` 已枚举、固件已载、`State: On`（§7.14）；⚠️ Wi-Fi 驱动已加载（en3，未关联、仍走有线） |
 | 音频 | ✅ VoodooHDA_BL 3.7.1（`15e3` HDA）：耳机/扬声器输出 + 模拟麦克风；codec 被标成 Conexant |
 | GPU 接管（head 0） | ✅ `PhxAMDFB on the panel: 1`，Metal 3 |
 | USB / HID | ✅ AMD xHCI 走 INTx（WujieXhciIntx），不再 2–4 ms 轮询；kernel_task ~0.9% |
@@ -269,15 +269,15 @@ NVMTL_SCHEDULE_AFTER_SURFACE_WRITES=1
   约 10–13% 的帧间隔为 33 ms，WindowServer CPU 27–46%。残余卡顿是 **blur 合成 CPU 开销**，
   `dbuf`/`phx_pm_mode`/`surface_gpu_on` 的 A/B 都在噪声内；67 ms 空档已由 §7.2 修掉
 
-### 7.4 蓝牙：AX200 的 USB 蓝牙设备未枚举
+### 7.4 蓝牙：AX200 的 USB 蓝牙设备未枚举（历史，已由 §7.14 修复）
 
-Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙应为 USB `8087:0029`，但 IORegistry
-全树没有该设备，`IntelBluetoothFirmware` 不加载，`system_profiler` 只显示假的 `BCM_4350C2`（UART，State Off）。
+> **2026-11-21 更新：本节结论是错的，保留作排错记录。** 真正的根因是 `USBPorts.kext` 在 Tahoe
+> 被内核拒绝（bundle-id 版本冲突），端口映射从未生效；且 Tahoe 必须加载 IntelBTPatcher。
+> 完整修复与验证见 **§7.14**。
 
-已启用 `USBPorts.kext`（K8 xHCI map，含 15b9/15ba 的 HS05 internal 端口）并重启验证：键盘/鼠标正常，
-但 XHC3/XHC4 的 internal USB2 `PRT1`（connector 9）仍为空。判断不是 kext 或端口映射问题，而是
-**BT 模块 USB 未供电/未接线，或 BIOS 关闭了 Bluetooth**；下一步是 BIOS 检查、彻底断电冷启动，
-或使用 USB 蓝牙 dongle。
+当时的观察：Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙应为 USB `8087:0029`，
+但 IORegistry 全树没有该设备，`IntelBluetoothFirmware` 不加载，`system_profiler` 只显示假的
+`BCM_4350C2`。当时误判为「USB 未供电/未接线或 BIOS 关闭」。
 
 ### 7.5 音频与空载功耗（2026-11-20）
 
@@ -288,7 +288,7 @@ Wi-Fi 侧 `pci8086,2723`（AX200）存在且 `AirportItlwm` 已加载；蓝牙�
 - **时钟门控**：`gpucg.sh all`（GC 11.0.1 的 MGCG/CGCG/CGLS，15XA 笔记本线）再降到 **23.4 W**，
   温度 54.5 → **50.1 °C**；GPU 仍 800 MHz、Metal 3、WindowServer 正常
 - 持久化：`debug.phx_pm_gfxoff=1` 在 `k8tuned.sh`；`gpucg.sh all` 在 `phxdisplay.sh` 开机重试执行
-- 蓝牙虽无硬件，但**不要禁用 `bluetoothd`**：试过 `launchctl disable system/com.apple.bluetoothd` 后，
+- 蓝牙现已可用（§7.14），但**不要禁用 `bluetoothd`**：试过 `launchctl disable system/com.apple.bluetoothd` 后，
   `ContextStoreAgent`/`logd`/`launchd` 会以 56%/36%/136% CPU 自旋重试，空闲功率反而升到 40 W；
   已 `launchctl enable` + `bootstrap system /System/Library/LaunchDaemons/com.apple.bluetoothd.plist` 恢复。
   它每 8–9 分钟 EXC_GUARD 重启一次的代价远小于这个自旋。
