@@ -2,6 +2,10 @@
 
 在一台 **KTHIN 科偲 K8** 迷你主机上安装并跑通 macOS Tahoe 的完整记录：OpenCore 引导、安装器、USB 丢中断修复、以及 nullarc 780M 显卡接管。
 
+> **阶段一存档（2026-11-22）**：本机当前状态、已知限制、恢复方法见
+> [docs/PHASE1-ARCHIVE-2026-11-22.md](docs/PHASE1-ARCHIVE-2026-11-22.md)。
+> 项目阶段性结束；若上游（nullarc / RTL8125 / AWDL）或硬件有突破，再继续更新。
+
 > 本仓库是**脱敏后的公开版**：SMBIOS 序列号/MLB/UUID、网卡 MAC、内网地址、用户名均已替换为占位值；第三方二进制（kext、EFI、安装包）不在仓库内，只给出出处与校验值。完整私有归档见 `izerok/k8-tahoe-hackintosh-full`（不公开）。
 
 ![evidence](evidence/k8-desktop-2026-11-19-redacted.png)
